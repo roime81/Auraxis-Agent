@@ -4,7 +4,14 @@ import clsx from 'clsx';
 import { useT, keybindingDescKey } from '../../i18n';
 import { useKeybindingsStore } from '../../stores/useKeybindingsStore';
 import { useShallow } from 'zustand/react/shallow';
-import { KEY_BINDINGS, formatBinding, isCtrlOrCmd, type KeyBinding } from '../../constants/keybindings';
+import {
+  KEY_BINDINGS,
+  formatBinding,
+  isCtrlOrCmd,
+  normalizeRecordedKey,
+  sameKey,
+  type KeyBinding,
+} from '../../constants/keybindings';
 import { SettingsPaneHeader } from './SettingsPanes';
 
 export function SettingsKeybindingsPane() {
@@ -26,7 +33,7 @@ export function SettingsKeybindingsPane() {
       }
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
       const newBinding: KeyBinding = {
-        key: event.key,
+        key: normalizeRecordedKey(event),
         ctrl: isCtrlOrCmd(event) || undefined,
         shift: event.shiftKey || undefined,
         alt: event.altKey || undefined,
@@ -36,7 +43,7 @@ export function SettingsKeybindingsPane() {
       const conflictIndex = active.findIndex(
         (binding, index) =>
           index !== recordingIndex &&
-          binding.key === newBinding.key &&
+          sameKey(binding.key, newBinding.key) &&
           (binding.ctrl ?? false) === (newBinding.ctrl ?? false) &&
           (binding.shift ?? false) === (newBinding.shift ?? false) &&
           (binding.alt ?? false) === (newBinding.alt ?? false),
