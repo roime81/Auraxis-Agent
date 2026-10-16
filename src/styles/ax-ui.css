@@ -104,12 +104,16 @@ body {
   opacity: 0.45;
 }
 
-/* DeepSeek 风格左上角胶囊工具栏：1px 分隔 + 两个图标胶囊按钮 */
+/* DeepSeek 风格左上角胶囊工具栏：1px 分隔 + 两个图标胶囊按钮。
+   高度与内按钮尺寸**对齐右侧的模式切换胶囊**（`.ax-header-capsule` 32px /
+   `-btn` 28px，对应 HeaderModeSwitcher 的 32px 轨道 + 28px 胶囊）：
+   两者在头栏里并排，尺寸不一致时肉眼是「左边胖一圈」。
+   顺带：头栏高度取最高子元素，改前胶囊 40px 会让「收起侧边栏」比「展开」高 8px。 */
 .ax-header-capsule {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 40px;
+  height: 32px;
   padding-right: 3px;
   border: 1px solid var(--color-border-default);
   border-radius: 100px;
@@ -121,8 +125,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 100px;
   background: transparent;
