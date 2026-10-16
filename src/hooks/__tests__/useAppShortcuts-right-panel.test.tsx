@@ -18,8 +18,31 @@ function Probe() {
   return null;
 }
 
+/**
+ * Shift+数字 在 US / 中文布局上产出的是符号，不是数字 —— 这里必须发**真实**的事件
+ * 形状（key 是符号、code 才是物理键位）。此前伪造 `key: '1'` 让这条链在 CI 里
+ * 永远是绿的，而真机上七个和弦一个都按不出来。
+ */
+const SHIFTED_DIGITS: Record<string, string> = {
+  '1': '!',
+  '2': '@',
+  '3': '#',
+  '4': '$',
+  '5': '%',
+  '6': '^',
+  '7': '&',
+};
+
 function press(key: string) {
-  window.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey: true, shiftKey: true, bubbles: true }));
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: SHIFTED_DIGITS[key] ?? key,
+      code: `Digit${key}`,
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    }),
+  );
 }
 
 const VIEWS: Array<[string, string]> = [
@@ -53,6 +76,22 @@ describe('useAppShortcuts — Ctrl+Shift+N 打开右栏视图', () => {
     act(() => press('5'));
 
     expect(useAppStore.getState().rightPanelView).toBe('menu');
+  });
+
+  it('分栏开着且第一栏在忙时，视图进第二栏（不夺走正在看的那一栏）', () => {
+    useAppStore.setState({
+      sidebarMode: 'code',
+      showRightPanel: true,
+      rightPanelSplit: true,
+      rightPanelView: 'diff',
+      rightPanelView2: 'menu',
+    });
+    render(<Probe />);
+    act(() => press('2'));
+
+    const state = useAppStore.getState();
+    expect(state.rightPanelView, '第一栏必须保持不动').toBe('diff');
+    expect(state.rightPanelView2).toBe('timeline');
   });
 
   it('输入框获得焦点时不劫持按键', () => {

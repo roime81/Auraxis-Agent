@@ -381,6 +381,18 @@ export interface AppStore {
    * 隐含目标，于是执行视图的「查看 Diff」会被它覆盖成文件树 —— 永远看不到 diff。
    */
   openFileRequest: { path: string; requestId: number; target: 'file-tree' | 'diff' } | null;
+  /**
+   * Agent 用 BrowserOpen 打开的网页：shell 收到 `browser:openRequest` 后写入，
+   * 由右栏预览实例消费一次即清（主区实例不消费 —— 主进程已经导航过它）。
+   * 此前订阅者住在预览组件内部，面板没挂着时**请求无人接收**，直接丢失。
+   */
+  browserOpenRequest: { url: string; ts: number } | null;
+  /**
+   * 面板关着时"有新内容待看"（顶栏工作台按钮上的小圆点）。
+   * 按 Cursor 的 pill 语义：内容到了不抢屏，用提示点告知；点开即清。
+   * 会话态，不持久化。见 `useBrowserOpenRouting`。
+   */
+  rightPanelUnseen: boolean;
   /** Multi-file tabs inside the 文件 panel (session-only, not persisted). */
   fileTabs: { path: string; name: string }[];
   /** Active file tab path; null = the fixed 文件树 tab. */
@@ -427,6 +439,11 @@ export interface AppStore {
   incrementFileTreeVersion: () => void;
   requestOpenFile: (path: string, target?: 'file-tree' | 'diff') => void;
   clearOpenFileRequest: () => void;
+  /** 记录一次 Agent 打开网页的请求（由 shell 层的 useBrowserOpenRouting 调用）。 */
+  setBrowserOpenRequest: (req: { url: string; ts: number }) => void;
+  clearBrowserOpenRequest: () => void;
+  /** 面板关着时亮"有新内容"提示点；任何一次 toggleRightPanel 都会清掉它。 */
+  markRightPanelUnseen: () => void;
   openFileTab: (path: string) => void;
   closeFileTab: (path: string) => void;
   setActiveFilePath: (path: string | null) => void;

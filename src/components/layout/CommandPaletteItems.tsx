@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { useSessionStore } from '../../stores/useSessionStore';
 import { executeCommand, createAgent } from '../../constants/commands';
 import { listSlashCommands, findPluginCommand } from '../../utils/slashCommands';
+import { openRightPanelView } from '../../workbench/openRightPanel';
 
 export interface CommandItem {
   id: string;
@@ -252,8 +253,9 @@ export function buildCommandItems({
           const app = useAppStore.getState();
           if (app.sidebarMode === 'chat') app.setSidebarMode('code');
           app.setActiveToolView('none');
-          app.setRightPanelView('file-tree');
-          if (!app.showRightPanel) app.toggleRightPanel();
+          // 打开右栏走统一入口（chat 守卫 + 分栏路由都在里面）；模式已切换，
+          // 守卫读的是切换后的 store，因此这里会放行。
+          openRightPanelView('file-tree');
           app.requestOpenFile(`${projectPath}/${relative}`);
           onClose();
         },
@@ -272,8 +274,7 @@ export function buildCommandItems({
         action: () => {
           const app = useAppStore.getState();
           if (app.sidebarMode === 'chat') app.setSidebarMode('code');
-          app.setRightPanelView('file-tree');
-          if (!app.showRightPanel) app.toggleRightPanel();
+          openRightPanelView('file-tree');
           app.requestOpenFile(hit.path);
           onClose();
         },

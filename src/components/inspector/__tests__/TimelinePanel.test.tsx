@@ -2,8 +2,9 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { act, fireEvent, render } from '@testing-library/react';
-import TimelinePanel from '../TimelinePanel';
+import TimelinePanel, { TRAJECTORY_FOCUS_TTL_MS } from '../TimelinePanel';
 import { useAgentStore } from '@/stores/useAgentStore';
+import { useAppStore } from '@/stores/useAppStore';
 import type { AgentInfo } from '@/types/agent';
 
 const agent: AgentInfo = {
@@ -125,6 +126,29 @@ describe('TimelinePanel — 右侧时间线', () => {
     fireEvent.change(input, { target: { value: 'step-engine' } });
     expect(container.textContent).toContain('Read');
     expect(container.textContent).not.toContain('轮次 2');
+  });
+
+  it('轨迹定位请求：新的选中该行，过期的只清不滚', () => {
+    // 新鲜请求 → 选中并展开详情侧栏（`<aside>` 只在有选中项时渲染）
+    useAppStore.setState({
+      trajectoryFocusRequest: { agentId: 'a1', toolCallId: 'tc1', ts: Date.now() },
+    });
+    const fresh = render(<TimelinePanel />);
+    expect(fresh.container.querySelector('aside'), '新鲜请求应当选中该行并展开详情').toBeTruthy();
+    expect(useAppStore.getState().trajectoryFocusRequest, '消费即清').toBeNull();
+    fresh.unmount();
+
+    // 过期请求（超过 TTL）→ 不选中任何行，但同样清掉，避免它继续挂在 store 里
+    useAppStore.setState({
+      trajectoryFocusRequest: {
+        agentId: 'a1',
+        toolCallId: 'tc1',
+        ts: Date.now() - TRAJECTORY_FOCUS_TTL_MS - 1000,
+      },
+    });
+    const stale = render(<TimelinePanel />);
+    expect(stale.container.querySelector('aside'), '过期请求不该把视图跳到历史步骤上').toBeNull();
+    expect(useAppStore.getState().trajectoryFocusRequest).toBeNull();
   });
 
   it('switches to the duration timeline view', () => {

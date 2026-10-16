@@ -107,7 +107,12 @@ export default function DiffPanel({ tabId: _tabId }: DiffPanelProps) {
   useEffect(() => {
     if (!openFileRequest || openFileRequest.target !== 'diff') return;
     const idx = diffs.findIndex((d) => d.path === openFileRequest.path);
-    if (idx >= 0) setSelected(idx);
+    if (idx >= 0) {
+      setSelected(idx);
+      // 兑现即清：请求是**单槽**状态，留着的话，当这次跳转的目标文件不在本次任务的
+      // 变更里（idx < 0）时会一直挂着，等用户下次打开别的面板时被误消费。
+      useAppStore.getState().clearOpenFileRequest();
+    }
   }, [openFileRequest, diffs]);
 
   const current = diffs[selected];

@@ -175,6 +175,35 @@ describe('右侧栏全屏与分栏', () => {
   });
 });
 
+describe('不可用视图的兜底（锁定 / 已失效的视图值）', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      rightPanelSplit: false,
+      rightPanelFullscreen: false,
+      showRightPanel: true,
+    });
+  });
+
+  it('锁定视图（pr）渲染带原因的失败卡，而不是「有标题、空内容」', () => {
+    useAppStore.setState({ rightPanelView: 'pr' });
+    const { getByText, queryByText } = render(<WorkbenchRightAside compact={false} />);
+
+    expect(getByText('这个视图当前打不开')).toBeTruthy();
+    // 原因用的是注册表里 lockedReasonKey 的那句（此前是孤儿文案，无处渲染）
+    expect(getByText('尚未接入 Git Provider（GitHub / GitLab），PR 审阅没有真实数据源')).toBeTruthy();
+    // 标题退回中性名，不再把失效视图显示成「概览」指错方向
+    expect(queryByText('概览')).toBeNull();
+  });
+
+  it('已失效的旧视图值（如被并入变更的 artifacts）也给出可读说明', () => {
+    useAppStore.setState({ rightPanelView: 'artifacts' as never });
+    const { getByText } = render(<WorkbenchRightAside compact={false} />);
+
+    expect(getByText('这个视图当前打不开')).toBeTruthy();
+    expect(getByText(/视图标识已失效/)).toBeTruthy();
+  });
+});
+
 describe('右侧栏左右分栏', () => {
   beforeEach(() => {
     useAppStore.setState({

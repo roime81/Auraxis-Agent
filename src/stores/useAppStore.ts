@@ -44,6 +44,8 @@ const APP_STORE_INITIAL_STATE: Pick<
   | 'agentRawLogRequest'
   | 'agentErrorNavRequest'
   | 'openFileRequest'
+  | 'browserOpenRequest'
+  | 'rightPanelUnseen'
   | 'fileTabs'
   | 'activeFilePath'
   | 'fileTreeVersion'
@@ -84,6 +86,8 @@ const APP_STORE_INITIAL_STATE: Pick<
   agentRawLogRequest: 0,
   agentErrorNavRequest: null,
   openFileRequest: null,
+  browserOpenRequest: null,
+  rightPanelUnseen: false,
   fileTabs: [],
   activeFilePath: null,
   fileTreeVersion: 0,
@@ -120,7 +124,11 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
 
     // 关闭面板时一并退出全屏：否则「面板已隐藏 + 仍处全屏」会让侧栏保留一个
     // 铺满窗口的固定层，把后面的界面点击全部挡住。
-    toggleRightPanel: () => set((s) => ({ showRightPanel: !s.showRightPanel, rightPanelFullscreen: false })),
+    // 任何一次开合都清掉"有新内容"提示点：打开=已看到，关闭=用户主动收起。
+    // 面板**打开**的唯一卡点就在这里（快捷键 / 命令面板 / 芯片跳转都经统一入口调它），
+    // 所以提示点的清除不需要散落在各处。
+    toggleRightPanel: () =>
+      set((s) => ({ showRightPanel: !s.showRightPanel, rightPanelFullscreen: false, rightPanelUnseen: false })),
 
     setShowSettings: (show: boolean) => set({ showSettings: show }),
 
@@ -197,6 +205,12 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
     requestOpenFile: (path, target = 'file-tree') => set({ openFileRequest: { path, requestId: Date.now(), target } }),
 
     clearOpenFileRequest: () => set({ openFileRequest: null }),
+
+    setBrowserOpenRequest: (req) => set({ browserOpenRequest: req }),
+
+    clearBrowserOpenRequest: () => set({ browserOpenRequest: null }),
+
+    markRightPanelUnseen: () => set({ rightPanelUnseen: true }),
 
     openFileTab: (path) =>
       set((s) => {

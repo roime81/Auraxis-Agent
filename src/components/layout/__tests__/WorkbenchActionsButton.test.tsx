@@ -32,6 +32,26 @@ describe('WorkbenchActionsButton — 右侧面板开关', () => {
     expect(useAppStore.getState().showRightPanel).toBe(false);
   });
 
+  it('有未查看的新内容且面板关着时，按钮带提示点（不抢屏的那一半）', () => {
+    useAppStore.setState({ showRightPanel: false, rightPanelView: 'preview', rightPanelUnseen: true });
+    const { getByRole } = render(<WorkbenchActionsButton />);
+
+    const btn = getByRole('button');
+    expect(btn.querySelector('span[aria-hidden="true"]'), '应当渲染提示点').toBeTruthy();
+    expect(btn.getAttribute('aria-label')).toContain('新内容');
+
+    // 点开面板即清点（清除是 toggleRightPanel 的职责）
+    fireEvent.click(btn);
+    expect(useAppStore.getState().rightPanelUnseen).toBe(false);
+  });
+
+  it('面板开着时不显示提示点（没有"未看"可言）', () => {
+    useAppStore.setState({ showRightPanel: true, rightPanelView: 'preview', rightPanelUnseen: true });
+    const { getByRole } = render(<WorkbenchActionsButton />);
+
+    expect(getByRole('button').querySelector('span[aria-hidden="true"]')).toBeNull();
+  });
+
   it('收起面板时一并退出全屏（否则会残留铺满窗口的固定层挡住点击）', () => {
     useAppStore.setState({ showRightPanel: true, rightPanelView: 'file-tree', rightPanelFullscreen: true });
     const { getByRole } = render(<WorkbenchActionsButton />);

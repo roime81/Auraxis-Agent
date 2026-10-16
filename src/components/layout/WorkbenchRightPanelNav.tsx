@@ -33,7 +33,9 @@ import { COCKPIT_TABS, PANEL_LABELS } from './WorkbenchLayoutData';
 export type RightPanelTabKey = (typeof COCKPIT_TABS)[number]['key'];
 
 function labelKeyOf(view: string): I18nKey {
-  return PANEL_LABELS[view] ?? 'workbench.overview';
+  // 兜底给面板的中性名，而不是某个具体模块名：查不到只可能是**失效的视图值**
+  // （旧存档 / 已移除的功能），标题写「概览」会指错方向 —— 正文有失败说明卡。
+  return PANEL_LABELS[view] ?? 'workbench.actions';
 }
 
 /**
@@ -221,6 +223,26 @@ export function RightPanelMenu({ onSelect, pane = 1 }: { onSelect: (key: RightPa
   );
 }
 
+/**
+ * 不可用视图的兜底卡：单层容器（二级底色、无描边），把"缺什么"讲清楚。
+ *
+ * 注册表（`WORKBENCH_PANELS`）是能力事实源，但它的判断此前只被清单**过滤**消费，
+ * 没有展示侧：一旦 `rightPanelView` 被写成锁定键（`pr` / `computer`）或已失效的旧值
+ * （如被合并掉的 `'artifacts'`），`WorkbenchRightPanel` 的 switch 就落到 `default: null`
+ * —— 用户看到的是"有标题、永久空白"的面板，且没有任何解释。
+ */
+function RightPanelUnavailable({ reasonKey }: { reasonKey: I18nKey }) {
+  const t = useT();
+  return (
+    <div className="p-3">
+      <div className="rounded-md bg-bg-inset p-3.5">
+        <p className="text-sm font-medium text-text-secondary">{t('workbench.unavailableTitle')}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-text-muted">{t(reasonKey)}</p>
+      </div>
+    </div>
+  );
+}
+
 /** 单栏：头部 + 可滚动内容（清单态或某个功能的详情）。 */
 function RightPanelPane({
   view,
@@ -236,16 +258,32 @@ function RightPanelPane({
   onBack: () => void;
 }) {
   const isMenu = view === 'menu';
+  const ctx = useWorkbenchContext();
+  const def = isMenu ? undefined : COCKPIT_TABS.find((d) => d.key === view);
+  const unavailableReasonKey: I18nKey | null = isMenu
+    ? null
+    : !def
+      ? 'workbench.unknownView'
+      : panelState(def, ctx) === 'locked'
+        ? (def.lockedReasonKey ?? 'workbench.lockedGeneric')
+        : null;
   return (
     <div className="flex flex-col min-h-0 min-w-0 flex-1" data-pane={pane}>
       {isMenu ? (
         <RightPanelMenuHeader />
       ) : (
-        // `+` 只出现在详情头：它是"把**当前这个模块**再开一栏"，清单态没有"当前模块"。
+        // `+` 出现在详情头里，含义是"给**当前这个模块**新增一个条目"（如文件模块 → 新建文件），
+        // 不是"再开一栏" —— 分栏是头部另一颗按钮。清单态没有"当前模块"，所以不放 `+`。
         <RightPanelDetailHeader view={view} compact={compact} pane={pane} onBack={onBack} />
       )}
       <div className="ax-right-panel-content flex-1 overflow-y-auto min-h-0">
-        {isMenu ? <RightPanelMenu onSelect={onSelect} pane={pane} /> : <WorkbenchRightPanel rightPanelView={view} />}
+        {isMenu ? (
+          <RightPanelMenu onSelect={onSelect} pane={pane} />
+        ) : unavailableReasonKey ? (
+          <RightPanelUnavailable reasonKey={unavailableReasonKey} />
+        ) : (
+          <WorkbenchRightPanel rightPanelView={view} />
+        )}
       </div>
     </div>
   );

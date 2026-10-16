@@ -14,7 +14,10 @@ export default function WorkbenchActionsButton() {
   const t = useT();
   const showRightPanel = useAppStore((s) => s.showRightPanel);
   const rightPanelView = useAppStore((s) => s.rightPanelView);
+  const unseen = useAppStore((s) => s.rightPanelUnseen);
   const active = showRightPanel && rightPanelView !== 'none';
+  // 面板关着且有新内容（Agent 打开了网页）才亮提示点：不抢屏，但要让人看得见。
+  const showDot = unseen && !active;
 
   const togglePanel = () => {
     const store = useAppStore.getState();
@@ -29,13 +32,17 @@ export default function WorkbenchActionsButton() {
   return (
     <button
       type="button"
-      className={clsx('ax-header-action text-sm', active && '!bg-primary-soft !text-primary')}
+      // 稳定钩子：关闭面板时焦点回位到这里（见 WorkbenchLayout 的 focus-return effect），
+      // 不依赖按钮的可访问名（它会随未读状态变化）。
+      data-workbench-toggle=""
+      className={clsx('ax-header-action relative text-sm', active && '!bg-primary-soft !text-primary')}
       onClick={togglePanel}
-      aria-label={t('workbench.actions')}
+      aria-label={showDot ? t('workbench.unseenContent') : t('workbench.actions')}
       aria-pressed={active}
-      title={t('workbench.actions')}
+      title={showDot ? t('workbench.unseenContent') : t('workbench.actions')}
     >
       <PanelRight weight={active ? 'fill' : 'regular'} />
+      {showDot && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-danger" />}
     </button>
   );
 }

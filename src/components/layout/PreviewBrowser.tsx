@@ -80,6 +80,9 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
 
   // Start blank — user types a URL and hits Enter.
   const [url, setUrl] = useState('');
+  // webview 是否该渲染：url 非空才挂载。声明在上方 —— 接线 effect 的依赖要用它
+  // （见那里的死锁说明），而 effect 在渲染函数更早的位置。
+  const hasContent = useMemo(() => !!url, [url]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [canBack, setCanBack] = useState(false);
@@ -93,6 +96,10 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
   const [historyOpen, setHistoryOpen] = useState(false);
   const urlRef = useRef('');
+  // title 的可变镜像：接线 effect 里的处理器要读**最新**标题（记历史用），
+  // 但 title 不能进依赖 —— 它只由该 effect 内部注册的 onTitle 赋值，进了依赖
+  // 反而把 effect 钉死在"永不重跑"上（见那里的说明）。
+  const titleRef = useRef('');
 
   const refreshNavState = useCallback(() => {
     const wv = webviewRef.current;
@@ -124,17 +131,18 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
       setUrl(e.url);
       setInput(e.url);
       refreshNavState();
-      setHistory((h) => recordHistory(h, e.url, title));
+      setHistory((h) => recordHistory(h, e.url, titleRef.current));
     };
     const onNavSub = (e: Electron.DidNavigateInPageEvent) => {
       if (e.isMainFrame) {
         urlRef.current = e.url;
         setUrl(e.url);
         setInput(e.url);
-        setHistory((h) => recordHistory(h, e.url, title));
+        setHistory((h) => recordHistory(h, e.url, titleRef.current));
       }
     };
     const onTitle = (e: Electron.PageTitleUpdatedEvent) => {
+      titleRef.current = e.title;
       setTitle(e.title);
       if (urlRef.current) setHistory((h) => recordHistory(h, urlRef.current, e.title));
     };
@@ -170,12 +178,6 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
     // 挂载即登记；面板关闭（卸载）时注销，避免留下失效句柄。
     registerTarget();
 
-    // Agent 打开网页时，主进程已经导航过了；这里只负责把它切到前台。
-    const offOpenRequest = window.electronAPI?.browser?.onOpenRequest?.(({ url: target }) => {
-      useAppStore.getState().setRightPanelView('preview');
-      if (target) wv.loadURL(target)?.catch(() => setLoading(false));
-    });
-
     wv.addEventListener('did-start-loading', onStart);
     wv.addEventListener('did-stop-loading', onStop);
     wv.addEventListener('did-navigate', onNav);
@@ -186,7 +188,6 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
 
     return () => {
       unregisterTarget();
-      offOpenRequest?.();
       wv.removeEventListener('did-stop-loading', registerTarget);
       wv.removeEventListener('did-start-loading', onStart);
       wv.removeEventListener('did-stop-loading', onStop);
@@ -196,7 +197,13 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
       wv.removeEventListener('did-fail-load', onFail);
       wv.removeEventListener('console-message', onConsole);
     };
-  }, [refreshNavState, title]);
+    // 依赖里**不能**放 `title`：它只在本 effect 内部注册的 onTitle 里被赋值，
+    // 于是这段依赖永不变更 = effect 永不重跑；而 url 初始为空时 <webview> 根本不渲染、
+    // ref 必然为 null —— 两者叠加成死锁：监听（含 browser.register 目标登记）
+    // 一次都装不上。改挂 hasContent（webview 渲染与否的唯一开关）后，
+    // webview 挂载那一帧 ref 已就绪、effect 立刻接线。
+    // 处理器要读最新标题就用 titleRef（与 urlRef 同一套模式），别再把它请回依赖。
+  }, [refreshNavState, hasContent]);
 
   // 标注模式：用户点页面元素 → 生成一个尽量稳定的选择器，并把元素文本带回来。
   //
@@ -311,7 +318,33 @@ export default function PreviewBrowser({ tabId }: PreviewBrowserProps) {
     }
   };
 
-  const hasContent = useMemo(() => !!url, [url]);
+  /**
+   * 消费 shell 层写入的 `browserOpenRequest`（Agent 打开了网页）。
+   *
+   * 只有**右栏实例**消费：主区实例的导航同样由主进程完成，重复消费会把同一个
+   * 页面加载两遍。webview 尚未挂载时（面板此前没开过预览）走 `setUrl` —— 挂载即导航。
+   */
+  const browserOpenRequest = useAppStore((s) => s.browserOpenRequest);
+  useEffect(() => {
+    if (!browserOpenRequest || tabId !== 'right-preview') return;
+    const target = browserOpenRequest.url;
+    useAppStore.getState().clearBrowserOpenRequest();
+    if (!target) return;
+    const wv = webviewRef.current;
+    if (wv) {
+      // 主进程已经导航过它了：URL 相同就别再戳一次（避免无谓的重新加载）。
+      let current = '';
+      try {
+        current = wv.getURL();
+      } catch {
+        /* 尚未 attach */
+      }
+      if (current !== target) wv.loadURL(target)?.catch(() => setLoading(false));
+      return;
+    }
+    setUrl(target);
+    setInput(target);
+  }, [browserOpenRequest, tabId]);
 
   const reload = () => {
     setLoading(true);

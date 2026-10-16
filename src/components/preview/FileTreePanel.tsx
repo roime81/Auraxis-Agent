@@ -86,7 +86,9 @@ export default function FileTreePanel({ tabId: _tabId, variant = 'tabs' }: FileT
 
   // Cross-panel file linkage (产物/概览/时间线) opens/activates a file tab.
   useEffect(() => {
-    if (!isTabs || !openFileRequest) return;
+    // 只消费**发给文件树**的请求（请求自带 target）。此前不看 target，于是一个
+    // 给「变更」的请求如果没被那边兑现，就会在用户下次打开「文件」时突然开一个文件页签。
+    if (!isTabs || !openFileRequest || openFileRequest.target !== 'file-tree') return;
     useAppStore.getState().openFileTab(openFileRequest.path);
     useAppStore.getState().clearOpenFileRequest();
   }, [isTabs, openFileRequest]);

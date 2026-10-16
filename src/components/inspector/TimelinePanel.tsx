@@ -21,6 +21,13 @@ import { TimelineStream } from './TimelineStream';
 import { TimelineDetailPanel } from './TimelineDetailPanel';
 import { exportTrajectory, exportTrajectoryMarkdown } from './TimelineExport';
 
+/**
+ * 定位请求的保鲜期：超过它的请求**只清不滚**。
+ * 请求是单槽 store 字段，落在里面的一条旧请求会在用户几分钟后打开时间线时
+ * 把视图突然跳到某个历史步骤上（"我只是打开看看，它自己跳走了"）。
+ */
+export const TRAJECTORY_FOCUS_TTL_MS = 10_000;
+
 /** Right-panel trajectory table: per-turn ledger with expandable tool details. */
 export default function TimelinePanel() {
   const tPanel = useT();
@@ -185,6 +192,12 @@ export default function TimelinePanel() {
   // Reverse focus: a double-click in the main Agent view selects this row.
   useEffect(() => {
     if (!trajectoryFocusRequest || trajectoryFocusRequest.agentId !== agent?.id) return;
+    // 过期即弃：请求是**单槽**状态，一条落在 store 里的旧请求会在用户几分钟后
+    // （下次打开时间线时）把视图突然跳到某个历史步骤上。只清，不滚。
+    if (Date.now() - trajectoryFocusRequest.ts > TRAJECTORY_FOCUS_TTL_MS) {
+      useAppStore.getState().clearTrajectoryFocus();
+      return;
+    }
     const key = (() => {
       for (const turn of turns) {
         const found = turn.entries.find(

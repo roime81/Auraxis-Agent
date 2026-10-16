@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Layout } from 'antd';
 import { Allotment } from 'allotment';
 import clsx from 'clsx';
@@ -17,6 +17,9 @@ import { buildEditMenuItems, buildFileMenuItems, buildHelpMenuItems, buildViewMe
 import { useWorkbenchPaneResize, WORKBENCH_MAIN_MIN } from './useWorkbenchPaneResize';
 import { useMainAreaTopVar } from './useMainAreaTopVar';
 import { WorkbenchTabContent } from './WorkbenchContent';
+import { openRightPanelView } from '../../workbench/openRightPanel';
+import { useTrajectoryFocusRouting } from '../../hooks/useTrajectoryFocusRouting';
+import { useBrowserOpenRouting } from '../../hooks/useBrowserOpenRouting';
 
 /** 玻璃化边框：关闭时无边框色；100% 全透明，其余按档位淡出。 */
 function glassBorderColor(glassOn: boolean, level: number): string | undefined {
@@ -108,13 +111,15 @@ export default function WorkbenchLayout() {
   // Cross-panel file linkage: a chip anywhere (概览/时间线/产物) can request
   // opening a file — flip the right panel to the 文件 tab and let FileTreePanel
   // consume the request.
+  // 轨迹定位：对话里点「定位」/ 双击工具行 → 打开右栏并切到时间线（见该 hook 注释）。
+  useTrajectoryFocusRouting();
+  // Agent 打开网页 → 面板开着就切到前台，关着就亮未读点（不抢屏）。
+  useBrowserOpenRouting();
   useEffect(() => {
     if (!openFileRequest) return;
-    const st = useAppStore.getState();
-    if (st.sidebarMode === 'chat') return;
-    // 目标面板由请求自己带（diff 与文件树是两件事，不能一律切文件树）
-    st.setRightPanelView(openFileRequest.target === 'diff' ? 'diff' : 'file-tree');
-    if (!st.showRightPanel) st.toggleRightPanel();
+    // 目标面板由请求自己带（diff 与文件树是两件事，不能一律切文件树）。
+    // chat 守卫与"放哪一栏"的路由都在统一入口里。
+    openRightPanelView(openFileRequest.target === 'diff' ? 'diff' : 'file-tree');
   }, [openFileRequest]);
   useEffect(() => {
     if (!isElectron) return;
@@ -139,6 +144,24 @@ export default function WorkbenchLayout() {
 
   // Chat mode is pure conversation — the workbench panel only exists in Work/Agent.
   const hasRightPanel = showRightPanel && rightPanelView !== 'none' && sidebarMode !== 'chat';
+
+  /**
+   * 关闭面板时把焦点收回到开关按钮。
+   *
+   * 焦点若停在面板内，关闭后浏览器会把它丢回 body —— 键盘用户下一次 Tab 就从页面
+   * 开头重新数起（而且此刻面板已 inert，焦点留在里面等于凭空消失）。配套的 inert 见
+   * 下方右栏 aside；按钮上的 `data-workbench-toggle` 是稳定钩子（可访问名会随未读状态变）。
+   */
+  const prevHasRightPanel = useRef(hasRightPanel);
+  useEffect(() => {
+    const was = prevHasRightPanel.current;
+    prevHasRightPanel.current = hasRightPanel;
+    if (!was || hasRightPanel) return;
+    const focused = document.activeElement;
+    if (!focused || !focused.closest?.('[data-pane="right"]')) return;
+    (document.querySelector('[data-workbench-toggle]') as HTMLElement | null)?.focus();
+  }, [hasRightPanel]);
+
   // Narrow right panel: the header hint collapses so the row never crowds.
   const rightPanelCompact = rightPanelWidth <= 340;
 
@@ -286,6 +309,10 @@ export default function WorkbenchLayout() {
           data-pane="right"
           data-fullscreen={fullscreenAttr(hasRightPanel, rightPanelFullscreen)}
           tabIndex={-1}
+          // 关闭态只有 aria-hidden + 宽度 0：子树仍在，Tab 会掉进看不见的清单/文件树里
+          // （含可聚焦元素的 aria-hidden 子树本身也违反 WAI-ARIA）。用 inert 把关闭态
+          // 从键盘与指针交互里摘出去，但**不卸载** —— 面板状态跨关开存活是刻意设计。
+          inert={!hasRightPanel || undefined}
           aria-hidden={!hasRightPanel || undefined}
           className={clsx(
             'relative z-20 h-full shrink-0 overflow-hidden border-l border-border-dim dark:border-l-[var(--color-border-dim)] outline-none transition-[width,max-width] duration-300 ease-out',

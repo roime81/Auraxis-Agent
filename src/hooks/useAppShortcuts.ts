@@ -14,22 +14,13 @@ import { useKeybindingsStore } from '../stores/useKeybindingsStore';
 import { useSessionStore } from '../stores/useSessionStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useUndoStore } from '../stores/useUndoStore';
+import { openRightPanelView } from '../workbench/openRightPanel';
 
 type ShortcutHandler = (e: KeyboardEvent) => void;
 
 function focusPane(name: string): void {
   const el = document.querySelector(`[data-pane="${name}"]`) as HTMLElement | null;
   el?.focus();
-}
-
-/** 打开右侧面板的某个视图（Chat 模式下不生效）。 */
-function openRightPanelView(
-  view: 'inspector' | 'diff' | 'preview' | 'timeline' | 'summary' | 'plan' | 'file-tree',
-): void {
-  if (useAppStore.getState().sidebarMode === 'chat') return;
-  const app = useAppStore.getState();
-  app.setRightPanelView(view);
-  if (!app.showRightPanel) app.toggleRightPanel();
 }
 
 function confirmClearChat(): void {

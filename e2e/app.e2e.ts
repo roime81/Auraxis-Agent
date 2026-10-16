@@ -223,6 +223,55 @@ test('右侧面板：清单一次列全，模块「+」与分栏各司其职', a
   await page.getByRole('button', { name: '工作台面板' }).click();
 });
 
+test('右侧面板：真实键盘的 Ctrl+Shift+N 能打开对应视图', async () => {
+  await page.getByRole('radio', { name: 'Code' }).click();
+
+  const pane1 = page.locator('#root [data-pane="1"]');
+  await expect(pane1).toBeHidden();
+
+  // 真键盘上 Shift+数字 发出的是 ! @ # …（不是数字本身）。**必须按符号写**：
+  // Playwright 的 `Control+Shift+3` 会合成出 `key:"3"`，那正是单测曾用来伪造、
+  // 从而让这条链在真机上失效还常绿的形状。`Control+Shift+#` 才是 `key:"#", code:Digit3`。
+  await page.keyboard.press('Control+Shift+#');
+  await expect(pane1).toBeVisible();
+  await expect(pane1.getByText('变更', { exact: true })).toBeVisible();
+
+  // 面板开着时换另一个和弦：直接切视图，不需要先关
+  await page.keyboard.press('Control+Shift+@');
+  await expect(pane1.getByText('时间线', { exact: true })).toBeVisible();
+
+  // 字母和弦走的是另一条形状：`Shift+字母` 产出**大写** key（绑定表里曾混用小写，
+  // 导致「切换右侧面板」按不响）。
+  await page.keyboard.press('Control+Shift+I');
+  await expect(pane1).toBeHidden();
+  await page.keyboard.press('Control+Shift+I');
+  await expect(pane1).toBeVisible();
+
+  // 反例：Ctrl+1（未按 Shift）不是这条快捷键 —— 视图保持不变
+  await page.keyboard.press('Control+1');
+  await expect(pane1.getByText('时间线', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: '工作台面板' }).click();
+});
+
+test('右侧面板：关闭态整棵子树退出键盘与指针交互（inert）', async () => {
+  await page.getByRole('radio', { name: 'Code' }).click();
+  const rightAside = page.locator('aside[data-pane="right"]');
+
+  // 关闭态：宽度 0 + aria-hidden，并且必须 inert —— 否则 Tab 会掉进看不见的清单/文件树里
+  // （含可聚焦元素的 aria-hidden 子树本身也违反 WAI-ARIA）。
+  await expect(rightAside).toHaveAttribute('inert', '');
+  await expect(rightAside).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.getByRole('navigation', { name: '工作台面板' })).toBeHidden();
+
+  await page.getByRole('button', { name: '工作台面板' }).click();
+  await expect(rightAside).not.toHaveAttribute('inert', '');
+  await expect(page.getByRole('navigation', { name: '工作台面板' })).toBeVisible();
+
+  await page.getByRole('button', { name: '工作台面板' }).click();
+  await expect(rightAside).toHaveAttribute('inert', '');
+});
+
 test('Code 模式侧边栏工具面板可打开', async () => {
   await page.getByRole('radio', { name: 'Code' }).click();
   const sidebar = page.locator('nav.ax-sidebar');

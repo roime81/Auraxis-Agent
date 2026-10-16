@@ -34,6 +34,18 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   });
 }
 
+// jsdom 没有布局引擎，因此不实现 Element.scrollTo / scrollIntoView —— 而"选中一行并
+// 滚动过去"是右栏时间线/执行详情里的常规动作。不补的话，任何走这条路的用例都会以
+// `TypeError: el.scrollTo is not a function` 收场，掩盖真正的断言失败。
+if (typeof Element !== 'undefined') {
+  if (typeof Element.prototype.scrollTo !== 'function') {
+    Element.prototype.scrollTo = () => {};
+  }
+  if (typeof Element.prototype.scrollIntoView !== 'function') {
+    Element.prototype.scrollIntoView = () => {};
+  }
+}
+
 // Ant Design 的静态 Modal / message / notification 会在 portal 里创建独立的
 // React root，并带有 motion 定时器（rc-motion 默认 300ms 级）。若这些任务在
 // jsdom 环境卸载后才执行，React 调度器会访问已销毁的 window 并抛出

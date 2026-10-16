@@ -136,7 +136,14 @@ export function useAgentConversationLog({
     if (toolCallId) {
       requestAnimationFrame(() => {
         scrollLogTo(`[data-agent-log-entry="${toolCallId}"]`);
-        useAppStore.getState().requestTrajectoryFocus(agentId, toolCallId);
+        // 只在时间线**已经可见**时才镜像过去。错误导航的语义是"在主区里跳下一条
+        // 错误"，不该顺手把右栏抢出来 —— 那会让用户丢开正在看的东西（与用户显式
+        // 点击「定位」区分开：那种才开面板）。
+        const app = useAppStore.getState();
+        const timelineVisible =
+          app.showRightPanel &&
+          (app.rightPanelView === 'timeline' || (app.rightPanelSplit && app.rightPanelView2 === 'timeline'));
+        if (timelineVisible) app.requestTrajectoryFocus(agentId, toolCallId);
       });
     }
     useAppStore.getState().clearAgentErrorNav();

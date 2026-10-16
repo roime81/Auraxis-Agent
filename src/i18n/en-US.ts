@@ -185,6 +185,11 @@ export const enUS: Record<I18nKey, string> = {
   'workbench.pr.locked': 'No Git provider (GitHub / GitLab) integration yet — PR review has no real data source',
   'workbench.computer.locked': 'Runtime has no computer-use tool suite (screenshot / click / type) yet',
   'workbench.splitClose': 'Close split',
+  'workbench.unavailableTitle': 'This view cannot be opened',
+  'workbench.unknownView':
+    'This view id is no longer valid — it may come from an older saved layout or a removed feature. Use the back button to return to the list.',
+  'workbench.lockedGeneric': 'The runtime does not provide the backend this view needs.',
+  'workbench.unseenContent': 'New content ready to view (the agent opened a page while the panel was closed)',
   'menu.newChat': 'New chat',
   'menu.clearChat': 'Clear chat',
   'menu.settings': 'Settings',
