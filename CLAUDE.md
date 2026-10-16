@@ -125,7 +125,7 @@ Work 文档门（electron/work-docs-policy.ts）
 
 ## 渲染层
 
-- **没有路由器**。导航即状态：`useAppStore` 的 tab 列表 + `tabHistory`、`sidebarMode`、`activeToolView`、`rightPanelView`（右栏可分栏，第二栏是 `rightPanelView2`）。新增界面多半是加一个 view key / tab type（`src/types/chat.ts`）并在 `src/components/layout/WorkbenchContent.tsx` 注册，而不是加路由。右面板能力注册表在 `src/workbench/workbench-panels.tsx`（每项声明 `availability(ctx)`，能力不足时渲染带原因的锁定态，不要放假面板）。
+- **没有路由器**。导航即状态：`useAppStore` 的 `sidebarMode`、`activeToolView`、`rightPanelView`（右栏可分栏，第二栏是 `rightPanelView2`）、以及**会话历史** `sessionHistory`（顶栏左上角 ← →：主区固定单标签、标签历史已废弃，记录点订阅 `currentSessionId`，导航在 `src/hooks/useSessionHistory.ts`）。新增界面多半是加一个 view key / tab type（`src/types/chat.ts`）并在 `src/components/layout/WorkbenchContent.tsx` 注册，而不是加路由。右面板能力注册表在 `src/workbench/workbench-panels.tsx`（每项声明 `availability(ctx)`，能力不足时渲染带原因的锁定态，不要放假面板）。
 - **Activity 视图是纯投影**：`src/core/activity/**` 把 `messages[].toolCalls` / AgentLog 投影成聊天区的执行流程（纯函数，因而落在覆盖率门禁内）。「工具输出 → 卡片」的提取只有一份（`src/core/activity/agentCards.ts`），渲染只有一份（`src/components/agent/ToolOutputCard.tsx`）—— 历史上这三份提取逻辑漂移过，别再在组件里写第二份；新增 `ActivityType` 时 `src/core/activity/presentation.ts` 的 `Record<ActivityType, …>` 表会逼你归类，漏接即编译失败。
 - **Store 约定是「工厂注入」，不是 slice**：`useChatStore.ts` 等只持有 state + persist 配置，动作 / 缓冲 / 副作用拆在同目录的 `createXxx(deps)` 工厂模块里，用 `set`/`get` 注入后 spread 进 initializer（目的是断循环依赖 + 可单测）。chat 的运行时状态（`abortController`、IPC 订阅、看门狗超时）刻意放在 `src/stores/chatStreamRuntime.ts` 的**模块级单例**，不进 React state。
 - **IPC 边界**：契约唯一来源 `src/types/electron-api.ts`，文件末尾有与 preload 的类型漂移守卫。`window.electronAPI` 是**可选**的（纯浏览器回退），调用点一律 `?.`；没有统一 wrapper 层，组件直接调（例外：`src/services/ai-service.ts`、`agentStoreHelpers.agentIpc()`）。

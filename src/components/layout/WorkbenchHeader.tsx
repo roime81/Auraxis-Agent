@@ -34,8 +34,9 @@ export function WorkbenchHeader({
   editMenuItems: MenuProps['items'];
   viewMenuItems: MenuProps['items'];
   helpMenuItems: MenuProps['items'];
-  canGoBack: () => boolean;
-  canGoForward: () => boolean;
+  /** 会话历史是否可前进/后退 —— 值而不是函数：调用方用 hook 派生，天然随 store 更新。 */
+  canGoBack: boolean;
+  canGoForward: boolean;
   goBack: () => void;
   goForward: () => void;
   unreadNotifications: number;
@@ -57,18 +58,18 @@ export function WorkbenchHeader({
       <div className="ax-header-group flex-1 min-w-0 gap-2.5">
         <div className="ax-header-group shrink-0">
           <button
-            className={clsx('ax-header-action text-sm', !canGoBack() && 'ax-header-action:disabled')}
+            className={clsx('ax-header-action text-sm', !canGoBack && 'ax-header-action:disabled')}
             onClick={goBack}
-            disabled={!canGoBack()}
-            title={t('header.back')}
+            disabled={!canGoBack}
+            title={t('header.prevSession')}
           >
             <ArrowLeft weight="bold" />
           </button>
           <button
-            className={clsx('ax-header-action text-sm', !canGoForward() && 'ax-header-action:disabled')}
+            className={clsx('ax-header-action text-sm', !canGoForward && 'ax-header-action:disabled')}
             onClick={goForward}
-            disabled={!canGoForward()}
-            title={t('header.forward')}
+            disabled={!canGoForward}
+            title={t('header.nextSession')}
           >
             <ArrowRight weight="bold" />
           </button>

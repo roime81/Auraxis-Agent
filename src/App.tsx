@@ -10,6 +10,7 @@ import { useAppStore } from './stores/useAppStore';
 import { useSettingsStore } from './stores/useSettingsStore';
 import { darkTheme, lightTheme } from './styles/theme';
 import { useNotificationsSource } from './hooks/useNotificationsSource';
+import { useSessionHistoryRecording } from './hooks/useSessionHistory';
 import {
   useAgentNotifications,
   useDefaultChatTab,
@@ -63,6 +64,7 @@ export default function App() {
   usePluginBootstrap();
   usePluginCatalogSync();
   useSessionLogSync();
+  useSessionHistoryRecording();
   useFlushBeforeUnload();
   useWorktreeBridge();
   useAppShortcuts(() => setPaletteOpen((p) => !p));

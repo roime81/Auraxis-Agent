@@ -20,6 +20,7 @@ import { WorkbenchTabContent } from './WorkbenchContent';
 import { openRightPanelView } from '../../workbench/openRightPanel';
 import { useTrajectoryFocusRouting } from '../../hooks/useTrajectoryFocusRouting';
 import { useBrowserOpenRouting } from '../../hooks/useBrowserOpenRouting';
+import { useSessionHistoryNav } from '../../hooks/useSessionHistory';
 
 /** 玻璃化边框：关闭时无边框色；100% 全透明，其余按档位淡出。 */
 function glassBorderColor(glassOn: boolean, level: number): string | undefined {
@@ -56,15 +57,13 @@ export default function WorkbenchLayout() {
     sidebarMode,
     globalSearchOpen,
     setGlobalSearchOpen,
-    goBack,
-    goForward,
-    canGoBack,
-    canGoForward,
     terminalHeight,
     setTerminalHeight,
   } = useAppStore();
 
   const unreadNotifications = useNotificationStore((s) => s.items.filter((i) => !i.read).length);
+  // 顶栏左上角 ← →：会话历史（此前连的是已废弃的主区标签历史，永远禁用）。
+  const { canGoBack, canGoForward, goBack, goForward } = useSessionHistoryNav();
   const showSettings = useAppStore((s) => s.showSettings);
 
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;

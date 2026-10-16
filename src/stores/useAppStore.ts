@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
 import type { AppStore, LeftPanelTab, ThemeMode } from '../types/chat';
+import { pushSessionVisit } from './sessionHistoryNav';
 import type { WorkAutonomyTier } from '../types/advanced';
 
-let navigating = false;
 const MAX_FILE_TABS = 8;
 /** 左右分栏时面板至少要能放下两栏正文（每栏约 320px）。 */
 const RIGHT_PANEL_SPLIT_WIDTH = 640;
@@ -55,8 +55,8 @@ const APP_STORE_INITIAL_STATE: Pick<
   | 'rightPanelFullscreen'
   | 'rightPanelSplit'
   | 'rightPanelView2'
-  | 'tabHistory'
-  | 'tabHistoryIndex'
+  | 'sessionHistory'
+  | 'sessionHistoryIndex'
 > = {
   theme: 'light',
   sidebarCollapsed: false,
@@ -100,8 +100,8 @@ const APP_STORE_INITIAL_STATE: Pick<
   rightPanelSplit: false,
   /** 第二栏当前功能（与第一栏各自独立）。 */
   rightPanelView2: 'menu' as const,
-  tabHistory: [],
-  tabHistoryIndex: -1,
+  sessionHistory: [],
+  sessionHistoryIndex: -1,
 };
 
 /** 主题 / 面板 / 侧栏 / Agent 视图等通用 action。 */
@@ -246,20 +246,12 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
   return actions as AppActions;
 }
 
-/** 文件标签页与底部 tab 历史（后退/前进）action。 */
-function createTabActions(set: StoreSet, get: StoreGet): AppActions {
+/** 文件标签页与主区标签 action（标签历史已移除：主区固定单标签，历史改为会话维度）。 */
+function createTabActions(set: StoreSet): AppActions {
   const actions: Partial<AppStore> = {
     addTab: (tab) => {
       const id = Math.random().toString(36).slice(2, 11);
-      set((s) => {
-        const newHistory = [...s.tabHistory.slice(0, s.tabHistoryIndex + 1), id];
-        return {
-          tabs: [...s.tabs, { ...tab, id }],
-          activeTabId: id,
-          tabHistory: newHistory,
-          tabHistoryIndex: newHistory.length - 1,
-        };
-      });
+      set((s) => ({ tabs: [...s.tabs, { ...tab, id }], activeTabId: id }));
       return id;
     },
 
@@ -267,14 +259,7 @@ function createTabActions(set: StoreSet, get: StoreGet): AppActions {
       set((s) => {
         const newTabs = s.tabs.filter((t) => t.id !== tabId);
         const newActive = s.activeTabId === tabId ? (newTabs[newTabs.length - 1]?.id ?? null) : s.activeTabId;
-        const newHistory = s.tabHistory.filter((h) => h !== tabId);
-        const newIndex = newActive ? newHistory.lastIndexOf(newActive) : -1;
-        return {
-          tabs: newTabs,
-          activeTabId: newActive,
-          tabHistory: newHistory,
-          tabHistoryIndex: newIndex >= 0 ? newIndex : newHistory.length - 1,
-        };
+        return { tabs: newTabs, activeTabId: newActive };
       });
     },
 
@@ -282,13 +267,7 @@ function createTabActions(set: StoreSet, get: StoreGet): AppActions {
       set((s) => {
         const exists = s.tabs.some((t) => t.id === tabId);
         if (!exists) return s;
-        if (navigating) return { activeTabId: tabId };
-        const newHistory = [...s.tabHistory.slice(0, s.tabHistoryIndex + 1), tabId];
-        return {
-          activeTabId: tabId,
-          tabHistory: newHistory,
-          tabHistoryIndex: newHistory.length - 1,
-        };
+        return { activeTabId: tabId };
       });
     },
 
@@ -299,7 +278,7 @@ function createTabActions(set: StoreSet, get: StoreGet): AppActions {
     },
 
     closeAllTabs: () => {
-      set({ tabs: [], activeTabId: null, tabHistory: [], tabHistoryIndex: -1 });
+      set({ tabs: [], activeTabId: null, sessionHistory: [], sessionHistoryIndex: -1 });
     },
 
     setRightPanelView: (view) => {
@@ -333,50 +312,19 @@ function createTabActions(set: StoreSet, get: StoreGet): AppActions {
       }));
     },
 
-    goBack: () => {
-      const { tabHistoryIndex, tabHistory, tabs } = get();
-      let idx = tabHistoryIndex - 1;
-      while (idx >= 0) {
-        const targetId = tabHistory[idx];
-        if (tabs.some((t) => t.id === targetId)) {
-          navigating = true;
-          set({ activeTabId: targetId, tabHistoryIndex: idx });
-          navigating = false;
-          return;
-        }
-        idx--;
-      }
-      // Every earlier entry is closed — clamp so the 后退 button disables
-      // instead of staying enabled as a dead no-op.
-      set({ tabHistoryIndex: -1 });
-    },
+    /** 记录一次会话访问（由 `useSessionHistoryRecording` 订阅 currentSessionId 后调用）。 */
+    recordSessionVisit: (id) =>
+      set((s) => {
+        const next = pushSessionVisit(s.sessionHistory, s.sessionHistoryIndex, id);
+        return { sessionHistory: next.history, sessionHistoryIndex: next.index };
+      }),
 
-    goForward: () => {
-      const { tabHistoryIndex, tabHistory, tabs } = get();
-      let idx = tabHistoryIndex + 1;
-      while (idx < tabHistory.length) {
-        const targetId = tabHistory[idx];
-        if (tabs.some((t) => t.id === targetId)) {
-          navigating = true;
-          set({ activeTabId: targetId, tabHistoryIndex: idx });
-          navigating = false;
-          return;
-        }
-        idx++;
-      }
-      // Every later entry is closed — clamp so 前进 disables.
-      set({ tabHistoryIndex: tabHistory.length - 1 });
-    },
-
-    canGoBack: () => {
-      const { tabHistoryIndex } = get();
-      return tabHistoryIndex > 0;
-    },
-
-    canGoForward: () => {
-      const { tabHistoryIndex, tabHistory } = get();
-      return tabHistoryIndex < tabHistory.length - 1;
-    },
+    /**
+     * 跳转后回写下标。**导航决策不在这里** —— store 不能 import `useChatStore`
+     * （chatActions 已 import 本 store，反向引用成环，`check:cycles` 预算为 0），
+     * 所以"走哪一步 + 调 switchSession"放在 `src/hooks/useSessionHistory.ts`。
+     */
+    setSessionHistoryIndex: (index) => set({ sessionHistoryIndex: index }),
   };
   return actions as AppActions;
 }
@@ -386,7 +334,7 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
       ...APP_STORE_INITIAL_STATE,
       ...createGeneralActions(set, get),
-      ...createTabActions(set, get),
+      ...createTabActions(set),
     }),
     {
       name: 'auraxis-app-storage',

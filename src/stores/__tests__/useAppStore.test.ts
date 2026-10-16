@@ -11,8 +11,8 @@ describe('useAppStore — theme & sidebar', () => {
     useAppStore.setState({
       tabs: [],
       activeTabId: null,
-      tabHistory: [],
-      tabHistoryIndex: -1,
+      sessionHistory: [],
+      sessionHistoryIndex: -1,
     });
   });
 
@@ -176,40 +176,33 @@ describe('useAppStore — Agent 轮次展开', () => {
   });
 });
 
-describe('useAppStore — tab 历史钳制', () => {
+describe('useAppStore — 会话历史（顶栏 ← → 的状态）', () => {
   beforeEach(() => {
-    useAppStore.setState({ tabs: [], activeTabId: null, tabHistory: [], tabHistoryIndex: -1 });
+    useAppStore.setState({ sessionHistory: [], sessionHistoryIndex: -1 });
   });
 
-  it('前进方向条目全部关闭后，前进按钮状态被钳制为不可用', () => {
-    useAppStore.setState({
-      tabs: [{ id: 't1', label: 'T1', type: 'chat' }],
-      activeTabId: 't1',
-      tabHistory: ['t1', 't2', 't3'],
-      tabHistoryIndex: 0,
-    });
-    expect(useAppStore.getState().canGoForward()).toBe(true);
+  it('recordSessionVisit 追加访问，连续重复不重复入栈', () => {
+    const { recordSessionVisit } = useAppStore.getState();
+    recordSessionVisit('a');
+    recordSessionVisit('b');
+    recordSessionVisit('b');
 
-    useAppStore.getState().goForward();
-
-    expect(useAppStore.getState().canGoForward()).toBe(false);
+    expect(useAppStore.getState().sessionHistory).toEqual(['a', 'b']);
+    expect(useAppStore.getState().sessionHistoryIndex).toBe(1);
   });
 
-  it('后退方向条目全部关闭后，后退按钮状态被钳制为不可用', () => {
-    useAppStore.setState({
-      tabs: [{ id: 't1', label: 'T1', type: 'chat' }],
-      activeTabId: 't1',
-      tabHistory: ['t0', 't1'],
-      tabHistoryIndex: 1,
-    });
-    expect(useAppStore.getState().canGoBack()).toBe(true);
+  it('从历史中间访问新会话会截断"前进"分支（浏览器语义）', () => {
+    const { recordSessionVisit, setSessionHistoryIndex } = useAppStore.getState();
+    recordSessionVisit('a');
+    recordSessionVisit('b');
+    recordSessionVisit('c');
+    setSessionHistoryIndex(0);
+    recordSessionVisit('d');
 
-    useAppStore.getState().goBack();
-
-    expect(useAppStore.getState().canGoBack()).toBe(false);
+    expect(useAppStore.getState().sessionHistory).toEqual(['a', 'd']);
+    expect(useAppStore.getState().sessionHistoryIndex).toBe(1);
   });
 });
-
 describe('useAppStore — 文件多 Tab', () => {
   beforeEach(() => {
     useAppStore.setState({ fileTabs: [], activeFilePath: null });
@@ -294,12 +287,7 @@ describe('useAppStore — 文件多 Tab', () => {
 
 describe('useAppStore — tab management', () => {
   beforeEach(() => {
-    useAppStore.setState({
-      tabs: [],
-      activeTabId: null,
-      tabHistory: [],
-      tabHistoryIndex: -1,
-    });
+    useAppStore.setState({ tabs: [], activeTabId: null, sessionHistory: [], sessionHistoryIndex: -1 });
   });
 
   it('addTab 添加 tab 并设为活跃', () => {
@@ -307,15 +295,6 @@ describe('useAppStore — tab management', () => {
     expect(tabId).toBeTruthy();
     expect(useAppStore.getState().activeTabId).toBe(tabId);
     expect(useAppStore.getState().tabs).toHaveLength(1);
-  });
-
-  it('addTab 记录 tabHistory', () => {
-    const id1 = useAppStore.getState().addTab(mkTab('t1'));
-    const id2 = useAppStore.getState().addTab(mkTab('t2'));
-    const history = useAppStore.getState().tabHistory;
-    expect(history).toContain(id1);
-    expect(history).toContain(id2);
-    expect(useAppStore.getState().tabHistoryIndex).toBe(history.length - 1);
   });
 
   it('closeTab 关闭当前 tab — 切换到上一个', () => {
@@ -361,79 +340,13 @@ describe('useAppStore — tab management', () => {
     expect(tab?.label).toBe('New Title');
   });
 
-  it('closeAllTabs 清空所有 tabs / history', () => {
+  it('closeAllTabs 清空所有 tabs 与会话历史', () => {
     useAppStore.getState().addTab(mkTab('t1'));
     useAppStore.getState().addTab(mkTab('t2'));
     useAppStore.getState().closeAllTabs();
     expect(useAppStore.getState().tabs).toEqual([]);
     expect(useAppStore.getState().activeTabId).toBeNull();
-    expect(useAppStore.getState().tabHistory).toEqual([]);
-    expect(useAppStore.getState().tabHistoryIndex).toBe(-1);
-  });
-});
-
-describe('useAppStore — navigation (goBack / goForward)', () => {
-  beforeEach(() => {
-    useAppStore.setState({
-      tabs: [],
-      activeTabId: null,
-      tabHistory: [],
-      tabHistoryIndex: -1,
-    });
-  });
-
-  it('初始状态 canGoBack / canGoForward 均为 false', () => {
-    expect(useAppStore.getState().canGoBack()).toBe(false);
-    expect(useAppStore.getState().canGoForward()).toBe(false);
-  });
-
-  it('添加 tab 后 canGoBack 为 false（已在最新）', () => {
-    useAppStore.getState().addTab(mkTab('t1'));
-    expect(useAppStore.getState().canGoBack()).toBe(false);
-    expect(useAppStore.getState().canGoForward()).toBe(false);
-  });
-
-  it('添加两个 tab 后后退再前进', () => {
-    const id1 = useAppStore.getState().addTab(mkTab('t1'));
-    const id2 = useAppStore.getState().addTab(mkTab('t2'));
-
-    expect(useAppStore.getState().activeTabId).toBe(id2);
-    expect(useAppStore.getState().canGoBack()).toBe(true);
-    expect(useAppStore.getState().canGoForward()).toBe(false);
-
-    // 后退
-    useAppStore.getState().goBack();
-    expect(useAppStore.getState().activeTabId).toBe(id1);
-    expect(useAppStore.getState().canGoForward()).toBe(true);
-
-    // 前进
-    useAppStore.getState().goForward();
-    expect(useAppStore.getState().activeTabId).toBe(id2);
-    expect(useAppStore.getState().canGoForward()).toBe(false);
-  });
-
-  it('goBack 在最旧位置时不再后退', () => {
-    const id1 = useAppStore.getState().addTab(mkTab('t1'));
-    useAppStore.getState().addTab(mkTab('t2'));
-    useAppStore.getState().goBack();
-    expect(useAppStore.getState().activeTabId).toBe(id1);
-    // 再次 goBack 不应变化
-    useAppStore.getState().goBack();
-    expect(useAppStore.getState().activeTabId).toBe(id1);
-  });
-
-  it('历史中已关闭 tab 时跳过', () => {
-    const id1 = useAppStore.getState().addTab(mkTab('t1'));
-    const id2 = useAppStore.getState().addTab(mkTab('t2'));
-    useAppStore.getState().addTab(mkTab('t3'));
-
-    // 关闭 t2（历史中间的 tab）
-    useAppStore.getState().setActiveTab(id1); // 导航到 t1
-    useAppStore.getState().closeTab(id2);
-    expect(useAppStore.getState().tabs.find((t) => t.id === id2)).toBeUndefined();
-
-    // goForward 应跳过已关闭的 t2
-    useAppStore.getState().goForward();
-    // 没有更多有效 tab 可前进
+    expect(useAppStore.getState().sessionHistory).toEqual([]);
+    expect(useAppStore.getState().sessionHistoryIndex).toBe(-1);
   });
 });

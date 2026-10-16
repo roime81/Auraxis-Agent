@@ -202,6 +202,8 @@ export const zhCN = {
   'menu.help': '帮助',
   'header.back': '返回',
   'header.forward': '前进',
+  'header.prevSession': '上一个会话',
+  'header.nextSession': '下一个会话',
   'header.minimize': '最小化',
   'header.maximize': '最大化',
   'header.restore': '还原',

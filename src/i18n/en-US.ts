@@ -204,6 +204,8 @@ export const enUS: Record<I18nKey, string> = {
   'menu.help': 'Help',
   'header.back': 'Back',
   'header.forward': 'Forward',
+  'header.prevSession': 'Previous conversation',
+  'header.nextSession': 'Next conversation',
   'header.minimize': 'Minimize',
   'header.maximize': 'Maximize',
   'header.restore': 'Restore',

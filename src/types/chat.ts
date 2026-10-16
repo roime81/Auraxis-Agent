@@ -398,9 +398,11 @@ export interface AppStore {
   /** Active file tab path; null = the fixed 文件树 tab. */
   activeFilePath: string | null;
 
-  // Navigation history
-  tabHistory: string[];
-  tabHistoryIndex: number;
+  // Navigation history —— **会话维度**（顶栏左上角 ← →）。
+  // 曾经是主区标签页历史，但主区后来固定为单个对话标签、标签条也删了，那两个
+  // 箭头于是永远禁用（实测三模式全灰）。现在记录"访问过的会话"。
+  sessionHistory: string[];
+  sessionHistoryIndex: number;
 
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
@@ -462,11 +464,10 @@ export interface AppStore {
   /** 在新的一栏（左右分栏的第二栏）打开某个功能。 */
   openRightPanelInNewPane: (view: RightPanelTab) => void;
 
-  // Navigation
-  goBack: () => void;
-  goForward: () => void;
-  canGoBack: () => boolean;
-  canGoForward: () => boolean;
+  // Navigation —— 会话历史：记录点见 `useSessionHistoryRecording`，
+  // 前进/后退的决策在 `useSessionHistoryNav`（store 不能 import useChatStore，会成环）。
+  recordSessionVisit: (id: string) => void;
+  setSessionHistoryIndex: (index: number) => void;
 }
 
 // ─── Agentic-workspace task model (TodoWrite-driven checklist) ───
