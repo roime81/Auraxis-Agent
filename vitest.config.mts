@@ -25,8 +25,10 @@ export default defineConfig({
       // main.ts 与 preload*.ts 依赖真实 Electron 窗口生命周期，由 E2E、
       // SDK smoke 与 headless CLI 覆盖，故从单元门禁中排除（preload 拆分出的
       // 领域模块是等价的 contextBridge 装配层，适用同一条口径）。
-      // 当前实际：statements 89.39% / lines 91.83% / branches 80.52% /
-      // functions 88.47%。
+      // 当前实际（2026-10-16 全量实测，与 README / AGENTS / docs 双语声明逐项一致）：
+      // statements 89.88% / lines 92.27% / branches 81.36% / functions 89.08%。
+      // 改这里之前先跑 npm run test:coverage，读数在 coverage/coverage-summary.json；
+      // 四条数字若与文档声明相差超过 0.6pp，npm run check:docs 会在 CI 上阻断。
       thresholds: { lines: 80, branches: 80, functions: 80, statements: 80 },
       include: ['electron/**/*.ts', 'src/stores/**/*.ts', 'src/core/**/*.ts'],
       exclude: [

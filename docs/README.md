@@ -71,7 +71,7 @@ The project follows **paper-driven development**: 7 arXiv papers' core technique
   limitation found while verifying it: a containerized `cmd.exe` cannot spawn an
   external executable (`0xC0000142`), while direct container launches and cmd
   built-ins work.
-- **Quality gates**: 325 test files / 2,739 passing cases (platform-dependent
+- **Quality gates**: 328 test files / 2,797 passing cases (platform-dependent
   skips excluded), SDK build, SDK live smoke, E2E, audit, and three-platform release CI.
 
 ### Tech Stack
@@ -1057,9 +1057,9 @@ The app uses a built-in `.env` parser to load environment variables from `.env` 
 - **Framework**: Vitest (`describe`, `it`, `expect`, `vi` injected via globals)
 - **Main-process tests**: `electron/**/__tests__/`, node environment; modules depending on `electron` are isolated with `vi.mock('electron', ...)`
 - **Renderer tests**: `src/**/__tests__/`, jsdom environment (@testing-library/react)
-- **Total**: 325 test files / 2,739 cases passing (platform-dependent skips excluded)
+- **Total**: 328 test files / 2,797 cases passing (platform-dependent skips excluded)
 - **Coverage scope**: the branch gate counts `electron/**`, `src/stores/**`, `src/core/**`; UI components (`src/components/`) and main-process entry points (`main.ts` / `preload*.ts` etc.) are excluded from the gate and covered by component tests + Playwright E2E (`npm run test:e2e`)
-- **Coverage thresholds**: lines/statements ≥ 80%, branches ≥ 80%, functions ≥ 80% (latest full branch gate: 89.86% statements / 92.25% lines / 81.36% branches / 89.00% functions; Electron main entry and the preload bridge are verified by E2E and SDK smoke; Linux CI runs the coverage gate by default; `check-doc-stats` tolerates ≤0.6pp platform drift)
+- **Coverage thresholds**: lines/statements ≥ 80%, branches ≥ 80%, functions ≥ 80% (latest full branch gate: 89.88% statements / 92.27% lines / 81.36% branches / 89.08% functions; Electron main entry and the preload bridge are verified by E2E and SDK smoke; Linux CI runs the coverage gate by default; `check-doc-stats` tolerates ≤0.6pp platform drift)
 - **Coverage report**: `npm run test:coverage` outputs `coverage/coverage-summary.json` (gitignored dev artifact); the Settings "Test coverage" page reads it live via the `coverage:get` IPC; pure browser dev is served by a Vite middleware, and production builds copy it into `dist/coverage/`. When the report is missing, the panel shows the command to run instead of fake numbers
 - **E2E**: 16 Playwright UI flows passing (real Electron, including register → login → remember-me persistence)
 - **Real-API acceptance (DeepSeek)**: chat streaming, Code auto-approve Bash, Code "confirm each time" permission card (write after one approval), Work smart-execution flow, and Work plan-approval panel all verified. On `deepseek-flash` (V4.1): image input (a colour swatch read back correctly), thinking on/off, multi-turn tool chains, chat/work/code surface gates (chat issues zero tool calls), and a fresh zero-dependency CommonJS + `node:test` project created and verified through `npm test` all pass; inline `RunWorkflow` remains fail-closed. A capped run (budget 3 from `agentMaxIterations`) stopped exactly at the budget with the files it wrote already on disk, and a composer follow-up resumed it. When the host cannot create the restricted token, the native Windows sandbox refuses execution instead of downgrading to an unsandboxed run (`electron/sandbox-runner.ts`)

@@ -51,7 +51,7 @@ Auraxis v3.5.0 是一款基于 Electron 的桌面端智能体工作台，融合�
 - **沙箱**：启动失败一律 fail-closed（拒绝执行，绝不降级成无沙箱）。AppContainer 后端在
   验证过程中记录了一条真实的 OS 限制：容器内的 `cmd.exe` 无法派生外部可执行文件
   （`0xC0000142`），而容器直接启动与 cmd 内建命令正常。
-- **质量门禁**：325 个测试文件 / 2,739 用例通过（平台/CI 相关跳过不在其中），
+- **质量门禁**：328 个测试文件 / 2,797 用例通过（平台/CI 相关跳过不在其中），
   SDK 构建、SDK 真实 runtime 冒烟、E2E、审计与三平台 Release CI 均通过。
 
 ### 技术栈
@@ -1032,9 +1032,9 @@ dist-electron/ + dist/ ──→ electron-builder ──→ release/
 - **测试框架**：Vitest（`describe`, `it`, `expect`, `vi` 通过 globals 注入）
 - **主进程测试**：`electron/**/__tests__/`，node 环境，依赖 `electron` 的模块用 `vi.mock('electron', ...)` 隔离
 - **渲染进程测试**：`src/**/__tests__/`，jsdom 环境（@testing-library/react）
-- **测试总数**：325 个测试文件 / 2,739 个用例通过（平台/CI 相关跳过不在其中）
+- **测试总数**：328 个测试文件 / 2,797 个用例通过（平台/CI 相关跳过不在其中）
 - **覆盖率口径**：门槛统计范围包括 `electron/**`、`src/stores/**`、`src/core/**`；UI 组件（`src/components/`）与主进程入口（`main.ts` / `preload*.ts` 等）不计入该门槛，另有组件级测试与 Playwright 端到端测试（`npm run test:e2e`）覆盖
-- **覆盖率阈值**：行/语句 ≥ 80%，分支 ≥ 80%，函数 ≥ 80%（最近一次全仓库分支门禁报告为 89.86% statements / 92.25% lines / 81.36% branches / 89.00% functions，四项均已达标；Electron 主入口与 preload 桥由真实 E2E、SDK smoke 与 headless CLI 验证，Linux CI 默认执行覆盖率门禁，`check-doc-stats` 允许 ≤0.6pp 的平台差异）
+- **覆盖率阈值**：行/语句 ≥ 80%，分支 ≥ 80%，函数 ≥ 80%（最近一次全仓库分支门禁报告为 89.88% statements / 92.27% lines / 81.36% branches / 89.08% functions，四项均已达标；Electron 主入口与 preload 桥由真实 E2E、SDK smoke 与 headless CLI 验证，Linux CI 默认执行覆盖率门禁，`check-doc-stats` 允许 ≤0.6pp 的平台差异）
 - **覆盖率报告**：`npm run test:coverage` 同时输出 `coverage/coverage-summary.json`（gitignore 的开发期产物）；设置面板「测试覆盖率」页经 `coverage:get` IPC 实时读取，纯浏览器 dev 由 Vite 中间件提供同一路径，生产构建将其拷入 `dist/coverage/`。报告缺失时面板提示运行命令，不显示伪造数字。
 - **端到端测试**：16 条 Playwright UI 链路通过（真实 Electron，含本地注册 → 登录 → 记住我持久化）
 - **实战验收（DeepSeek 真实 API）**：Chat 流式回答、Code 自动代批 Bash、Code「每次确认」权限卡（允许一次后写入文件）、Work 智能放行执行流、Work 计划审批面板均跑通；`deepseek-flash`（V4.1）另完成图片输入（色块识别正确）、思考开/关、多轮工具链、三种能力面门禁（chat 零工具调用）与全新零依赖 CommonJS + `node:test` 项目的创建与 `npm test` 真实验证；内联 `RunWorkflow` 保持 fail-closed。将 `agentMaxIterations` 设为 3 的实测中，任务恰好在预算处收尾且已写文件真实落盘，随后在输入框发送消息即可续跑。宿主无法创建受限令牌时，Windows 原生沙箱会拒绝执行而非降级为非沙箱运行（`electron/sandbox-runner.ts`）。
