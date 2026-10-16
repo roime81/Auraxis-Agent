@@ -71,7 +71,7 @@ The project follows **paper-driven development**: 7 arXiv papers' core technique
   limitation found while verifying it: a containerized `cmd.exe` cannot spawn an
   external executable (`0xC0000142`), while direct container launches and cmd
   built-ins work.
-- **Quality gates**: 328 test files / 2,797 passing cases (platform-dependent
+- **Quality gates**: 330 test files / 2,807 passing cases (platform-dependent
   skips excluded), SDK build, SDK live smoke, E2E, audit, and three-platform release CI.
 
 ### Tech Stack
@@ -1057,7 +1057,7 @@ The app uses a built-in `.env` parser to load environment variables from `.env` 
 - **Framework**: Vitest (`describe`, `it`, `expect`, `vi` injected via globals)
 - **Main-process tests**: `electron/**/__tests__/`, node environment; modules depending on `electron` are isolated with `vi.mock('electron', ...)`
 - **Renderer tests**: `src/**/__tests__/`, jsdom environment (@testing-library/react)
-- **Total**: 328 test files / 2,797 cases passing (platform-dependent skips excluded)
+- **Total**: 330 test files / 2,807 cases passing (platform-dependent skips excluded)
 - **Coverage scope**: the branch gate counts `electron/**`, `src/stores/**`, `src/core/**`; UI components (`src/components/`) and main-process entry points (`main.ts` / `preload*.ts` etc.) are excluded from the gate and covered by component tests + Playwright E2E (`npm run test:e2e`)
 - **Coverage thresholds**: lines/statements ≥ 80%, branches ≥ 80%, functions ≥ 80% (latest full branch gate: 89.88% statements / 92.27% lines / 81.36% branches / 89.08% functions; Electron main entry and the preload bridge are verified by E2E and SDK smoke; Linux CI runs the coverage gate by default; `check-doc-stats` tolerates ≤0.6pp platform drift)
 - **Coverage report**: `npm run test:coverage` outputs `coverage/coverage-summary.json` (gitignored dev artifact); the Settings "Test coverage" page reads it live via the `coverage:get` IPC; pure browser dev is served by a Vite middleware, and production builds copy it into `dist/coverage/`. When the report is missing, the panel shows the command to run instead of fake numbers
