@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blablabla Orb</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        user-select: none;
+        -webkit-app-region: drag;
+      }
+      .orb {
+        width: 112px;
+        height: 112px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #d8e4ff 0%, #7f8ef7 24%, #131a2d 58%, #01050c 100%);
+        border: 1px solid rgba(255,255,255,0.18);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.08),
+          0 0 20px rgba(122,150,255,0.35),
+          0 0 32px rgba(77,208,255,0.24);
+        position: relative;
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+      .orb::before {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
+      }
+      .orb::after {
+        content: "";
+        position: absolute;
+        inset: 24px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.44), rgba(255,255,255,0.02));
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: .9; }
+        50% { transform: scale(1.08); opacity: 1; }
+        100% { transform: scale(1); opacity: .9; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="orb" aria-label="Blablabla orb"></div>
+  </body>
+</html>
