@@ -16,6 +16,8 @@ type SavedWindowState = {
   height: number;
   maximized: boolean;
   companionDisabled: boolean;
+  companionX: number;
+  companionY: number;
 };
 
 const DEFAULT_WINDOW_STATE: SavedWindowState = {
@@ -25,6 +27,8 @@ const DEFAULT_WINDOW_STATE: SavedWindowState = {
   height: 760,
   maximized: false,
   companionDisabled: false,
+  companionX: 0,
+  companionY: 0,
 };
 
 export class AuraWindowManager {
@@ -109,35 +113,63 @@ export class AuraWindowManager {
     this.persistState();
   }
 
+  private constrainOrbPosition(x: number, y: number, width = 160, height = 160): { x: number; y: number } {
+    const display = screen.getPrimaryDisplay();
+    const work = display.workArea;
+    const maxX = Math.max(0, work.width - width);
+    const maxY = Math.max(0, work.height - height);
+    return {
+      x: Math.max(0, Math.min(x, maxX)),
+      y: Math.max(0, Math.min(y, maxY)),
+    };
+  }
+
+  private persistCompanionPosition(): void {
+    const orb = this.getFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    const { x, y } = orb.getBounds();
+    this.state = {
+      ...this.state,
+      companionX: x,
+      companionY: y,
+    };
+    this.persistState();
+  }
+
   private animateOpacity(win: BrowserWindow | null, visible: boolean): void {
     if (!win || win.isDestroyed()) return;
-
     const current = win.getOpacity();
+
     if (visible) {
-      win.show();
-      win.setOpacity(0.0);
-      const start = 0.0;
-      let opacity = start;
-      const tick = window.setInterval(() => {
+      if (!win.isVisible()) win.show();
+      if (current >= 1) return;
+
+      let opacity = 0;
+      win.setOpacity(0);
+      const tick = setInterval(() => {
         opacity = Math.min(1, opacity + 0.12);
         win.setOpacity(opacity);
         if (opacity >= 1) {
           win.setOpacity(1);
-          window.clearInterval(tick);
+          clearInterval(tick);
         }
       }, 16);
       return;
     }
 
-    const start = current <= 0 ? 1 : current;
-    let opacity = start;
-    const tick = window.setInterval(() => {
+    if (current <= 0) {
+      if (win.isVisible()) win.hide();
+      return;
+    }
+
+    let opacity = current;
+    const tick = setInterval(() => {
       opacity = Math.max(0, opacity - 0.12);
       win.setOpacity(opacity);
       if (opacity <= 0) {
         win.setOpacity(0);
         win.hide();
-        window.clearInterval(tick);
+        clearInterval(tick);
       }
     }, 16);
   }
@@ -147,6 +179,7 @@ export class AuraWindowManager {
     const orb = this.ensureFloatingWindow();
     if (!orb || orb.isDestroyed()) return;
     this.animateOpacity(orb, true);
+    this.persistCompanionPosition();
   }
 
   hideCompanionWindow(): void {
@@ -155,13 +188,26 @@ export class AuraWindowManager {
     this.animateOpacity(orb, false);
   }
 
+  minimizeCompanionWindow(): void {
+    const orb = this.getFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    orb.minimize();
+  }
+
+  restoreCompanionWindow(): void {
+    const orb = this.getFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    if (orb.isMinimized()) orb.restore();
+    this.showCompanionWindow();
+  }
+
   moveCompanionTo(x: number, y: number): void {
     const orb = this.getFloatingWindow();
     if (!orb || orb.isDestroyed()) return;
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    const nextX = Math.max(0, Math.min(x, width - orb.getBounds().width));
-    const nextY = Math.max(0, Math.min(y, height - orb.getBounds().height));
-    orb.setPosition(nextX, nextY);
+    const { x: clampedX, y: clampedY } = this.constrainOrbPosition(x, y, orb.getBounds().width, orb.getBounds().height);
+    orb.setPosition(clampedX, clampedY);
+    this.state = { ...this.state, companionX: clampedX, companionY: clampedY };
+    this.persistState();
   }
 
   createExpandedWindow(options: BrowserWindowConstructorOptions): BrowserWindow {
@@ -255,9 +301,15 @@ export class AuraWindowManager {
       this.floatingWindow = null;
     });
 
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    win.setPosition(Math.max(24, width - 180), Math.max(24, height - 180));
-    win.setOpacity(0.0);
+    const { x, y } = this.constrainOrbPosition(
+      this.state.companionX || screen.getPrimaryDisplay().workArea.width - 180,
+      this.state.companionY || 24,
+      win.getBounds().width,
+      win.getBounds().height,
+    );
+
+    win.setPosition(x, y);
+    win.setOpacity(0);
     this.floatingWindow = win;
     return win;
   }
@@ -327,9 +379,6 @@ export class AuraWindowManager {
         if (window.__auraxisBackToChatInjected) return;
         window.__auraxisBackToChatInjected = true;
 
-        const existing = document.querySelector('#auraxis-back-to-chat');
-        if (existing) existing.remove();
-
         const container = document.createElement('div');
         container.id = 'auraxis-back-to-chat';
         container.style.position = 'fixed';
@@ -338,7 +387,7 @@ export class AuraWindowManager {
         container.style.zIndex = '2147483647';
         container.style.display = 'flex';
         container.style.alignItems = 'center';
-        container.style.gap = '8px';
+        container.style.gap = '10px';
         container.style.pointerEvents = 'auto';
 
         const button = document.createElement('button');
@@ -346,7 +395,7 @@ export class AuraWindowManager {
         button.textContent = 'Back to Chat';
         button.style.border = '1px solid rgba(255,255,255,0.18)';
         button.style.borderRadius = '999px';
-        button.style.background = 'rgba(10,15,26,0.8)';
+        button.style.background = 'rgba(10,15,26,0.76)';
         button.style.color = '#f4f7ff';
         button.style.padding = '10px 16px';
         button.style.fontSize = '13px';
@@ -354,11 +403,24 @@ export class AuraWindowManager {
         button.style.cursor = 'pointer';
         button.style.boxShadow = '0 10px 28px rgba(0,0,0,0.22)';
         button.style.backdropFilter = 'blur(12px)';
-        button.addEventListener('click', () => {
+        button.style.transition = 'transform 120ms ease, border-color 120ms ease, background 120ms ease';
+        button.onmouseenter = () => {
+          button.style.transform = 'translateY(-1px)';
+          button.style.borderColor = 'rgba(127,142,247,0.7)';
+          button.style.background = 'rgba(18,25,42,0.9)';
+        };
+        button.onmouseleave = () => {
+          button.style.transform = 'translateY(0)';
+          button.style.borderColor = 'rgba(255,255,255,0.18)';
+          button.style.background = 'rgba(10,15,26,0.76)';
+        };
+        button.onmousedown = () => { button.style.transform = 'translateY(1px) scale(0.99)'; };
+        button.onmouseup = () => { button.style.transform = 'translateY(0)'; };
+        button.onclick = () => {
           if (window.electronAPI && typeof window.electronAPI.backToChat === 'function') {
             window.electronAPI.backToChat();
           }
-        });
+        };
 
         const chip = document.createElement('div');
         chip.textContent = 'Aura';
@@ -372,12 +434,29 @@ export class AuraWindowManager {
         chip.style.letterSpacing = '0.04em';
         chip.style.textTransform = 'uppercase';
 
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.style.width = '30px';
+        close.style.height = '30px';
+        close.style.borderRadius = '50%';
+        close.style.border = '1px solid rgba(255,255,255,0.18)';
+        close.style.background = 'rgba(255,255,255,0.05)';
+        close.style.color = '#dfe6ff';
+        close.style.cursor = 'pointer';
+        close.onclick = () => {
+          if (window.electronAPI && typeof window.electronAPI.closeOrbPage === 'function') {
+            window.electronAPI.closeOrbPage();
+          }
+          container.remove();
+        };
+
         container.appendChild(button);
         container.appendChild(chip);
+        container.appendChild(close);
         document.body.appendChild(container);
       })();
     `;
-
     webContents.executeJavaScript(script, true).catch(() => {});
   }
 
@@ -406,12 +485,8 @@ export class AuraWindowManager {
     const view = this.pageView;
     const bounds = this.expandedWindow.getContentBounds();
     view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height });
-    view.webContents.on('did-finish-load', () => {
-      this.injectBackToChat(view.webContents);
-    });
-    view.webContents.on('did-navigate', () => {
-      this.injectBackToChat(view.webContents);
-    });
+    view.webContents.on('did-finish-load', () => this.injectBackToChat(view.webContents));
+    view.webContents.on('did-navigate', () => this.injectBackToChat(view.webContents));
 
     view.webContents.loadURL(url);
     this.expandedWindow.setContentView(view);

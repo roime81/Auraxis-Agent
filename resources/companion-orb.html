@@ -31,12 +31,17 @@
           0 0 32px rgba(77,208,255,0.24);
         position: relative;
         animation: pulse 2.4s ease-in-out infinite;
-        transition: transform 140ms ease, filter 140ms ease;
+        transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
         cursor: grab;
+      }
+      .orb:hover {
+        transform: translateY(-1px) scale(1.03);
+        filter: brightness(1.08);
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 28px rgba(122,150,255,0.42), 0 0 40px rgba(77,208,255,0.28);
       }
       .orb:active {
         cursor: grabbing;
-        transform: scale(1.04);
+        transform: scale(0.98);
       }
       .orb::before {
         content: "";
@@ -62,43 +67,60 @@
     </style>
   </head>
   <body>
-    <div class="orb" aria-label="Blablabla orb"></div>
+    <div class="orb" aria-label="Blablabla orb" title="Drag me"></div>
     <script>
       const orb = document.querySelector('.orb');
       let dragging = false;
-      let offsetX = 0;
-      let offsetY = 0;
-      let initialX = 0;
-      let initialY = 0;
+      let dragStart = null;
+      let moveStart = null;
 
-      const moveOrb = (x, y) => {
-        if (window.electronAPI && typeof window.electronAPI.moveOrbTo === 'function') {
-          window.electronAPI.moveOrbTo(x, y);
-        }
-      };
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(value, max));
+      }
 
-      orb.addEventListener('pointerdown', (event) => {
+      function getBounds() {
+        return new Promise((resolve) => {
+          if (window.electronAPI && typeof window.electronAPI.getOrbBounds === 'function') {
+            window.electronAPI.getOrbBounds().then((bounds) => resolve(bounds || { x: 0, y: 0 })).catch(() => resolve({ x: 0, y: 0 }));
+            return;
+          }
+          resolve({ x: 0, y: 0 });
+        });
+      }
+
+      orb.addEventListener('pointerdown', async (event) => {
         dragging = true;
-        const bounds = window.screen ? { x: 0, y: 0 } : { x: 0, y: 0 };
-        initialX = event.clientX;
-        initialY = event.clientY;
-        const winBounds = window.electronAPI && typeof window.electronAPI.getOrbBounds === 'function'
-          ? window.electronAPI.getOrbBounds()
-          : { x: 0, y: 0 };
-        offsetX = winBounds.x ?? 0;
-        offsetY = winBounds.y ?? 0;
+        const bounds = await getBounds();
+        dragStart = { x: event.clientX, y: event.clientY };
+        moveStart = { x: bounds.x || 0, y: bounds.y || 0 };
         orb.setPointerCapture?.(event.pointerId);
       });
 
       orb.addEventListener('pointermove', (event) => {
-        if (!dragging) return;
-        const dx = event.clientX - initialX;
-        const dy = event.clientY - initialY;
-        moveOrb(offsetX + dx, offsetY + dy);
+        if (!dragging || !dragStart || !moveStart) return;
+
+        const dx = event.clientX - dragStart.x;
+        const dy = event.clientY - dragStart.y;
+        const nextX = moveStart.x + dx;
+        const nextY = moveStart.y + dy;
+
+        const display = window.screen?.availableWidth ? {
+          width: window.screen.availWidth,
+          height: window.screen.availHeight,
+        } : { width: 1600, height: 900 };
+
+        const clampedX = clamp(nextX, 0, Math.max(0, display.width - 160));
+        const clampedY = clamp(nextY, 0, Math.max(0, display.height - 160));
+
+        if (window.electronAPI && typeof window.electronAPI.moveOrbTo === 'function') {
+          window.electronAPI.moveOrbTo(clampedX, clampedY);
+        }
       });
 
       const endDrag = () => {
         dragging = false;
+        dragStart = null;
+        moveStart = null;
       };
 
       orb.addEventListener('pointerup', endDrag);

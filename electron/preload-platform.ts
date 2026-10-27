@@ -19,6 +19,8 @@ export function createPlatformApi() {
 
     showOrb: () => invoke('window:showOrb'),
     hideOrb: () => invoke('window:hideOrb'),
+    minimizeOrb: () => invoke('window:minimizeOrb'),
+    restoreOrb: () => invoke('window:restoreOrb'),
     moveOrbTo: (x: number, y: number) => invoke('window:moveOrb', x, y),
     getOrbBounds: () => invoke('window:getOrbBounds'),
     openOrbPage: (url: string) => invoke('window:openOrbPage', url),

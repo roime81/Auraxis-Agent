@@ -26,6 +26,16 @@ function registerWindowShellHandlers() {
     return { ok: true };
   });
 
+  secureHandle('window:minimizeOrb', () => {
+    auraWindowManager.minimizeCompanionWindow();
+    return { ok: true };
+  });
+
+  secureHandle('window:restoreOrb', () => {
+    auraWindowManager.restoreCompanionWindow();
+    return { ok: true };
+  });
+
   secureHandle('window:moveOrb', (_event, x: number, y: number) => {
     auraWindowManager.moveCompanionTo(Number(x), Number(y));
     return { ok: true };
@@ -44,11 +54,12 @@ function registerWindowShellHandlers() {
   });
 
   secureHandle('window:getOrbState', () => {
+    const orb = auraWindowManager.getFloatingWindow();
     return {
       ok: true,
       data: {
         enabled: !auraWindowManager['state']?.companionDisabled,
-        visible: !!auraWindowManager.getFloatingWindow() && !auraWindowManager.getFloatingWindow()!.isMinimized?.() && !auraWindowManager.getFloatingWindow()!.isVisible?.(),
+        visible: !!orb && !orb.isDestroyed() && orb.isVisible(),
       },
     };
   });
