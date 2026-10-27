@@ -1,13 +1,49 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StateCreator } from 'zustand';
-import type { AppStore, LeftPanelTab, ThemeMode } from '../types/chat';
+import type {
+  AppStore,
+  DesktopLayoutState,
+  LeftPanelTab,
+  ThemeMode,
+} from '../types/chat';
 import { pushSessionVisit } from './sessionHistoryNav';
 import type { WorkAutonomyTier } from '../types/advanced';
 
 const MAX_FILE_TABS = 8;
 /** 左右分栏时面板至少要能放下两栏正文（每栏约 320px）。 */
 const RIGHT_PANEL_SPLIT_WIDTH = 640;
+
+const EMPTY_DESKTOP_LAYOUT: DesktopLayoutState = {
+  orb: {
+    enabled: true,
+    visible: true,
+    alwaysOnTop: true,
+    pinned: true,
+    minimized: false,
+    width: 260,
+    height: 180,
+    x: 24,
+    y: 120,
+    lastActivatedAt: null,
+  },
+  window: {
+    width: 1200,
+    height: 800,
+    x: 120,
+    y: 80,
+    maximized: false,
+    minimized: false,
+    closeAction: 'minimize',
+  },
+  page: {
+    url: null,
+    title: null,
+    source: null,
+    visible: false,
+    lastOpenedAt: null,
+  },
+};
 
 type StoreSet = Parameters<StateCreator<AppStore, [], []>>[0];
 type StoreGet = Parameters<StateCreator<AppStore, [], []>>[1];
@@ -57,6 +93,7 @@ const APP_STORE_INITIAL_STATE: Pick<
   | 'rightPanelView2'
   | 'sessionHistory'
   | 'sessionHistoryIndex'
+  | 'desktopLayout'
 > = {
   theme: 'light',
   sidebarCollapsed: false,
@@ -94,14 +131,12 @@ const APP_STORE_INITIAL_STATE: Pick<
   tabs: [],
   activeTabId: null,
   rightPanelView: 'menu' as const,
-  /** 右侧栏全屏：面板临时铺满窗口（盖住左侧栏与主内容）。 */
   rightPanelFullscreen: false,
-  /** 右侧栏分栏：上下两栏，可同时看两个功能。 */
   rightPanelSplit: false,
-  /** 第二栏当前功能（与第一栏各自独立）。 */
   rightPanelView2: 'menu' as const,
   sessionHistory: [],
   sessionHistoryIndex: -1,
+  desktopLayout: EMPTY_DESKTOP_LAYOUT,
 };
 
 /** 主题 / 面板 / 侧栏 / Agent 视图等通用 action。 */
@@ -122,11 +157,6 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
 
     setWorkAutonomyTier: (tier) => set({ workAutonomyTier: tier }),
 
-    // 关闭面板时一并退出全屏：否则「面板已隐藏 + 仍处全屏」会让侧栏保留一个
-    // 铺满窗口的固定层，把后面的界面点击全部挡住。
-    // 任何一次开合都清掉"有新内容"提示点：打开=已看到，关闭=用户主动收起。
-    // 面板**打开**的唯一卡点就在这里（快捷键 / 命令面板 / 芯片跳转都经统一入口调它），
-    // 所以提示点的清除不需要散落在各处。
     toggleRightPanel: () =>
       set((s) => ({ showRightPanel: !s.showRightPanel, rightPanelFullscreen: false, rightPanelUnseen: false })),
 
@@ -172,8 +202,6 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
     toggleAllAgentTurns: () =>
       set((s) => {
         const current = Array.isArray(s.openAgentTurns) ? s.openAgentTurns : [];
-        // Turn iterations are 0-based (first iteration_start emits 0), so
-        // "expand all" must produce 0..n-1 — 1..n silently skips round 0.
         return {
           openAgentTurns:
             current.length >= s.agentTurnCount && s.agentTurnCount > 0
@@ -211,6 +239,60 @@ function createGeneralActions(set: StoreSet, _get: StoreGet): AppActions {
     clearBrowserOpenRequest: () => set({ browserOpenRequest: null }),
 
     markRightPanelUnseen: () => set({ rightPanelUnseen: true }),
+
+    setDesktopLayout: (patch) =>
+      set((state) => ({
+        desktopLayout: {
+          orb: { ...state.desktopLayout.orb, ...patch.orb },
+          window: { ...state.desktopLayout.window, ...patch.window },
+          page: { ...state.desktopLayout.page, ...patch.page },
+        },
+      })),
+
+    setOrbState: (patch) =>
+      set((state) => ({
+        desktopLayout: { ...state.desktopLayout, orb: { ...state.desktopLayout.orb, ...patch } },
+      })),
+
+    setMainWindowState: (patch) =>
+      set((state) => ({
+        desktopLayout: { ...state.desktopLayout, window: { ...state.desktopLayout.window, ...patch } },
+      })),
+
+    setPageTargetState: (patch) =>
+      set((state) => ({
+        desktopLayout: { ...state.desktopLayout, page: { ...state.desktopLayout.page, ...patch } },
+      })),
+
+    setCloseAction: (action) =>
+      set((state) => ({
+        desktopLayout: {
+          ...state.desktopLayout,
+          window: { ...state.desktopLayout.window, closeAction: action },
+        },
+      })),
+
+    openDesktopPage: (url, title, source = 'user') =>
+      set((state) => ({
+        desktopLayout: {
+          ...state.desktopLayout,
+          page: {
+            url,
+            title,
+            source,
+            visible: true,
+            lastOpenedAt: Date.now(),
+          },
+        },
+      })),
+
+    hideDesktopPage: () =>
+      set((state) => ({
+        desktopLayout: {
+          ...state.desktopLayout,
+          page: { ...state.desktopLayout.page, visible: false },
+        },
+      })),
 
     openFileTab: (path) =>
       set((s) => {
@@ -294,7 +376,6 @@ function createTabActions(set: StoreSet): AppActions {
         const split = !s.rightPanelSplit;
         return {
           rightPanelSplit: split,
-          // 左右并排要放得下两栏正文：开启时顺手加宽（布局上限会再收敛）。
           rightPanelWidth: split ? Math.max(s.rightPanelWidth, RIGHT_PANEL_SPLIT_WIDTH) : s.rightPanelWidth,
         };
       });
@@ -312,18 +393,12 @@ function createTabActions(set: StoreSet): AppActions {
       }));
     },
 
-    /** 记录一次会话访问（由 `useSessionHistoryRecording` 订阅 currentSessionId 后调用）。 */
     recordSessionVisit: (id) =>
       set((s) => {
         const next = pushSessionVisit(s.sessionHistory, s.sessionHistoryIndex, id);
         return { sessionHistory: next.history, sessionHistoryIndex: next.index };
       }),
 
-    /**
-     * 跳转后回写下标。**导航决策不在这里** —— store 不能 import `useChatStore`
-     * （chatActions 已 import 本 store，反向引用成环，`check:cycles` 预算为 0），
-     * 所以"走哪一步 + 调 switchSession"放在 `src/hooks/useSessionHistory.ts`。
-     */
     setSessionHistoryIndex: (index) => set({ sessionHistoryIndex: index }),
   };
   return actions as AppActions;
@@ -338,9 +413,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'auraxis-app-storage',
-      version: 3,
-      // Version bumps must never brick hydration: keep old persisted values
-      // (partialize defines what is persisted).
+      version: 4,
       migrate: (persisted) => persisted,
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
@@ -349,9 +422,6 @@ export const useAppStore = create<AppStore>()(
         sidebarWidth: state.sidebarWidth,
         leftPanelWidth: state.leftPanelWidth,
         rightPanelWidth: state.rightPanelWidth,
-        // paneSizes intentionally not persisted — initialSizes is computed from
-        // sidebarWidth + rightPanelWidth + the current viewport so the layout
-        // adapts when reopening at a different window size.
         activeLeftPanel: state.activeLeftPanel,
         rightPanelView: state.rightPanelView,
         terminalHeight: state.terminalHeight,
@@ -359,7 +429,9 @@ export const useAppStore = create<AppStore>()(
         agentTextOnly: state.agentTextOnly,
         agentRunningOnly: state.agentRunningOnly,
         agentRunningFollow: state.agentRunningFollow,
+        desktopLayout: state.desktopLayout,
       }),
     },
   ),
 );
+
