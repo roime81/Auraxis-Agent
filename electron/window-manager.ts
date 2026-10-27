@@ -109,6 +109,61 @@ export class AuraWindowManager {
     this.persistState();
   }
 
+  private animateOpacity(win: BrowserWindow | null, visible: boolean): void {
+    if (!win || win.isDestroyed()) return;
+
+    const current = win.getOpacity();
+    if (visible) {
+      win.show();
+      win.setOpacity(0.0);
+      const start = 0.0;
+      let opacity = start;
+      const tick = window.setInterval(() => {
+        opacity = Math.min(1, opacity + 0.12);
+        win.setOpacity(opacity);
+        if (opacity >= 1) {
+          win.setOpacity(1);
+          window.clearInterval(tick);
+        }
+      }, 16);
+      return;
+    }
+
+    const start = current <= 0 ? 1 : current;
+    let opacity = start;
+    const tick = window.setInterval(() => {
+      opacity = Math.max(0, opacity - 0.12);
+      win.setOpacity(opacity);
+      if (opacity <= 0) {
+        win.setOpacity(0);
+        win.hide();
+        window.clearInterval(tick);
+      }
+    }, 16);
+  }
+
+  showCompanionWindow(): void {
+    if (this.state.companionDisabled) return;
+    const orb = this.ensureFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    this.animateOpacity(orb, true);
+  }
+
+  hideCompanionWindow(): void {
+    const orb = this.getFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    this.animateOpacity(orb, false);
+  }
+
+  moveCompanionTo(x: number, y: number): void {
+    const orb = this.getFloatingWindow();
+    if (!orb || orb.isDestroyed()) return;
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    const nextX = Math.max(0, Math.min(x, width - orb.getBounds().width));
+    const nextY = Math.max(0, Math.min(y, height - orb.getBounds().height));
+    orb.setPosition(nextX, nextY);
+  }
+
   createExpandedWindow(options: BrowserWindowConstructorOptions): BrowserWindow {
     if (this.expandedWindow && !this.expandedWindow.isDestroyed()) return this.expandedWindow;
 
@@ -142,6 +197,14 @@ export class AuraWindowManager {
 
     this.expandedWindow = win;
 
+    win.on('closed', () => {
+      this.expandedWindow = null;
+      this.closeWebPage();
+      if (!this.isQuitting && this.floatingWindow && !this.floatingWindow.isDestroyed()) {
+        this.floatingWindow.close();
+      }
+    });
+
     win.on('close', (event) => {
       if (this.isQuitting) return;
       event.preventDefault();
@@ -170,7 +233,7 @@ export class AuraWindowManager {
       frame: false,
       resizable: false,
       alwaysOnTop: true,
-      movable: true,
+      movable: false,
       skipTaskbar: true,
       show: false,
       minimizable: false,
@@ -194,6 +257,7 @@ export class AuraWindowManager {
 
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     win.setPosition(Math.max(24, width - 180), Math.max(24, height - 180));
+    win.setOpacity(0.0);
     this.floatingWindow = win;
     return win;
   }
@@ -208,8 +272,7 @@ export class AuraWindowManager {
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
-
-    if (this.floatingWindow && !this.floatingWindow.isDestroyed()) this.floatingWindow.hide();
+    this.hideCompanionWindow();
     return win;
   }
 
@@ -219,9 +282,7 @@ export class AuraWindowManager {
 
     win.hide();
     if (!this.state.companionDisabled) {
-      const orb = this.ensureFloatingWindow();
-      orb?.show();
-      orb?.focus();
+      this.showCompanionWindow();
     }
     this.persistExpandedState();
   }
@@ -236,24 +297,88 @@ export class AuraWindowManager {
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+    this.hideCompanionWindow();
   }
 
   disableCompanion(): void {
     this.state.companionDisabled = true;
     this.persistState();
-    this.floatingWindow?.close();
+    const orb = this.getFloatingWindow();
+    if (orb && !orb.isDestroyed()) {
+      this.animateOpacity(orb, false);
+      setTimeout(() => orb.close(), 180);
+    }
     this.floatingWindow = null;
   }
 
   setCompanionEnabled(enabled: boolean): void {
     if (enabled) {
       this.state.companionDisabled = false;
-      const orb = this.ensureFloatingWindow();
-      orb?.show();
+      this.showCompanionWindow();
     } else {
       this.disableCompanion();
     }
     this.persistState();
+  }
+
+  private injectBackToChat(webContents: Electron.WebContents): void {
+    const script = `
+      (() => {
+        if (window.__auraxisBackToChatInjected) return;
+        window.__auraxisBackToChatInjected = true;
+
+        const existing = document.querySelector('#auraxis-back-to-chat');
+        if (existing) existing.remove();
+
+        const container = document.createElement('div');
+        container.id = 'auraxis-back-to-chat';
+        container.style.position = 'fixed';
+        container.style.right = '18px';
+        container.style.bottom = '18px';
+        container.style.zIndex = '2147483647';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.gap = '8px';
+        container.style.pointerEvents = 'auto';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Back to Chat';
+        button.style.border = '1px solid rgba(255,255,255,0.18)';
+        button.style.borderRadius = '999px';
+        button.style.background = 'rgba(10,15,26,0.8)';
+        button.style.color = '#f4f7ff';
+        button.style.padding = '10px 16px';
+        button.style.fontSize = '13px';
+        button.style.fontWeight = '600';
+        button.style.cursor = 'pointer';
+        button.style.boxShadow = '0 10px 28px rgba(0,0,0,0.22)';
+        button.style.backdropFilter = 'blur(12px)';
+        button.addEventListener('click', () => {
+          if (window.electronAPI && typeof window.electronAPI.backToChat === 'function') {
+            window.electronAPI.backToChat();
+          }
+        });
+
+        const chip = document.createElement('div');
+        chip.textContent = 'Aura';
+        chip.style.borderRadius = '999px';
+        chip.style.background = 'rgba(127,142,247,0.12)';
+        chip.style.border = '1px solid rgba(127,142,247,0.32)';
+        chip.style.color = '#dfe6ff';
+        chip.style.padding = '7px 10px';
+        chip.style.fontSize = '11px';
+        chip.style.fontWeight = '700';
+        chip.style.letterSpacing = '0.04em';
+        chip.style.textTransform = 'uppercase';
+
+        container.appendChild(button);
+        container.appendChild(chip);
+        document.body.appendChild(container);
+      })();
+    `;
+
+    webContents.executeJavaScript(script, true).catch(() => {});
   }
 
   openWebPage(url: string): boolean {
@@ -269,6 +394,7 @@ export class AuraWindowManager {
     if (!this.pageView) {
       this.pageView = new WebContentsView({
         webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
@@ -280,6 +406,13 @@ export class AuraWindowManager {
     const view = this.pageView;
     const bounds = this.expandedWindow.getContentBounds();
     view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height });
+    view.webContents.on('did-finish-load', () => {
+      this.injectBackToChat(view.webContents);
+    });
+    view.webContents.on('did-navigate', () => {
+      this.injectBackToChat(view.webContents);
+    });
+
     view.webContents.loadURL(url);
     this.expandedWindow.setContentView(view);
     return true;
@@ -299,8 +432,8 @@ export class AuraWindowManager {
   quitApplication(): void {
     this.isQuitting = true;
     this.closeWebPage();
-    this.floatingWindow?.close();
-    this.expandedWindow?.close();
+    if (this.floatingWindow && !this.floatingWindow.isDestroyed()) this.floatingWindow.close();
+    if (this.expandedWindow && !this.expandedWindow.isDestroyed()) this.expandedWindow.close();
     app.quit();
   }
 }

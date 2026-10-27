@@ -1,5 +1,3 @@
-/** preload-platform.ts — platform/window/auth/file/project renderer bridge. */
-import type { ApplyCodePayload } from './contracts/core';
 import { invoke, subscribe } from './preload-shared';
 
 export function createPlatformApi() {
@@ -19,6 +17,10 @@ export function createPlatformApi() {
     onMaximizeChange: (callback: (isMaximized: boolean) => void) =>
       subscribe('window:maximize-changed', (isMaximized) => callback(Boolean(isMaximized))),
 
+    showOrb: () => invoke('window:showOrb'),
+    hideOrb: () => invoke('window:hideOrb'),
+    moveOrbTo: (x: number, y: number) => invoke('window:moveOrb', x, y),
+    getOrbBounds: () => invoke('window:getOrbBounds'),
     openOrbPage: (url: string) => invoke('window:openOrbPage', url),
     closeOrbPage: () => invoke('window:closeOrbPage'),
     backToChat: () => invoke('window:backToChat'),

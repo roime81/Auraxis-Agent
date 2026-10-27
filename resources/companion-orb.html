@@ -17,7 +17,7 @@
         place-items: center;
         overflow: hidden;
         user-select: none;
-        -webkit-app-region: drag;
+        -webkit-app-region: no-drag;
       }
       .orb {
         width: 112px;
@@ -31,6 +31,12 @@
           0 0 32px rgba(77,208,255,0.24);
         position: relative;
         animation: pulse 2.4s ease-in-out infinite;
+        transition: transform 140ms ease, filter 140ms ease;
+        cursor: grab;
+      }
+      .orb:active {
+        cursor: grabbing;
+        transform: scale(1.04);
       }
       .orb::before {
         content: "";
@@ -57,5 +63,48 @@
   </head>
   <body>
     <div class="orb" aria-label="Blablabla orb"></div>
+    <script>
+      const orb = document.querySelector('.orb');
+      let dragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+      let initialX = 0;
+      let initialY = 0;
+
+      const moveOrb = (x, y) => {
+        if (window.electronAPI && typeof window.electronAPI.moveOrbTo === 'function') {
+          window.electronAPI.moveOrbTo(x, y);
+        }
+      };
+
+      orb.addEventListener('pointerdown', (event) => {
+        dragging = true;
+        const bounds = window.screen ? { x: 0, y: 0 } : { x: 0, y: 0 };
+        initialX = event.clientX;
+        initialY = event.clientY;
+        const winBounds = window.electronAPI && typeof window.electronAPI.getOrbBounds === 'function'
+          ? window.electronAPI.getOrbBounds()
+          : { x: 0, y: 0 };
+        offsetX = winBounds.x ?? 0;
+        offsetY = winBounds.y ?? 0;
+        orb.setPointerCapture?.(event.pointerId);
+      });
+
+      orb.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        const dx = event.clientX - initialX;
+        const dy = event.clientY - initialY;
+        moveOrb(offsetX + dx, offsetY + dy);
+      });
+
+      const endDrag = () => {
+        dragging = false;
+      };
+
+      orb.addEventListener('pointerup', endDrag);
+      orb.addEventListener('pointerleave', endDrag);
+      orb.addEventListener('pointercancel', endDrag);
+      document.addEventListener('pointerup', endDrag);
+    </script>
   </body>
 </html>
