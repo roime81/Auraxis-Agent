@@ -1,79 +1,68 @@
-# Auraxis
+# BlaBlaBla
 
-![Auraxis 主界面](https://github.com/user-attachments/assets/cc06146b-51a2-4b2e-a6c4-41aca0a0fb5e)
+![BlaBlaBla interface](https://github.com/user-attachments/assets/cc06146b-51a2-4b2e-a6c4-41aca0a0fb5e)
 
 ![CI](https://github.com/yth1120/Auraxis-Agent/actions/workflows/build.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Auraxis 是一个基于 Electron + React 19 + TypeScript 的桌面端 AI 智能体工作台，提供统一的 ReAct 步进引擎、多智能体调度、Code / Work 模式、MCP 连接器、文档处理、终端、插件扩展和持久化项目记忆。
+BlaBlaBla is a desktop AI agent workbench built with Electron + React 19 + TypeScript. It brings together a unified ReAct execution engine, multi-agent scheduling, Code / Work workflows, MCP connectors, document skills, and local desktop automation in one integrated application.
 
-## 界面预览
+## Interface Preview
 
-![Auraxis 工作台](https://github.com/user-attachments/assets/88f118c2-fc15-4779-8be3-928cb9c04ae8)
+![BlaBlaBla workbench](https://github.com/user-attachments/assets/88f118c2-fc15-4779-8be3-928cb9c04ae8)
 
-## 功能亮点
+## Highlights
 
-- 统一聊天、多 Agent 与 Code Mode 执行链路
-- 71+ 模型工具与完整权限、审批、沙箱管线
-- Chat / Work / Code 三种工作模式
-- MCP、飞书/Lark、DeepSeek Harness 等连接器
-- Word、Excel、PPT、PDF 文档技能
-- TypeScript 与 Python 两套 SDK
-- Windows / macOS / Linux 三平台构建与 E2E
-- 本地账户、加密凭据、记忆与全文检索
+- Unified chat experience with multi-agent and Code Mode execution
+- 71+ model tools with permission enforcement, approval flow, and sandboxing
+- Chat / Work / Code operating modes
+- MCP, Lark, DeepSeek Harness, and other connectors
+- Word, Excel, PPT, and PDF document skills
+- TypeScript and Python SDKs
+- Cross-platform support for Windows, macOS, and Linux
+- Local accounts, encrypted credentials, memory, and full-text search
 
-## 环境要求
+## Requirements
 
-- Node.js `>=24`（与 Electron 44 内置的 Node 24 对齐）
-- npm `>=10`
-- Python `>=3.9`（仅使用 Python SDK 时需要；Windows 可用 `winget install Python.Python.3.10`）
+- Node.js >= 24
+- npm >= 10
+- Python >= 3.9 (only required for the Python SDK; on Windows, install via `winget install Python.Python.3.10`)
 
-## 快速开始
+## Quick Start
 
 ```powershell
-git clone https://github.com/yth1120/Auraxis-Agent.git
-cd Auraxis
+git clone https://github.com/roime81/Auraxis-Agent.git
+cd BlaBlaBla
 npm install
 Copy-Item .env.example .env
 npm run electron:dev
 ```
 
-首次运行前请在 `.env` 中填写 `DEEPSEEK_API_KEY`，也可以在应用设置页中配置模型密钥。
+Before the first run, fill in `DEEPSEEK_API_KEY` in `.env`, or configure model keys from the app settings page.
 
-## 常用命令
+## Common Commands
 
-| 命令                       | 作用                                     |
-| -------------------------- | ---------------------------------------- |
-| `npm run electron:dev`     | 启动 Electron 开发环境                   |
-| `npm run electron:compile` | 编译主进程                               |
-| `npm run sdk:build`        | 编译 TypeScript SDK                      |
-| `npm run sdk:test`         | 运行 TypeScript SDK 单元测试             |
-| `npm run sdk:test:py`      | 运行 Python SDK 单元测试                 |
-| `npm run sdk:check:py`     | Python SDK 全检（ruff + pyright + 测试） |
-| `npm run sdk:smoke`        | 启动真实无头 runtime 并验证 SDK 连通性   |
-| `npm run test`             | 运行全量单元测试                         |
-| `npm run check`            | Lint、编译、类型检查和全量测试           |
-| `npm run build`            | 全量构建并打包                           |
+| Command | Purpose |
+| --- | --- |
+| `npm run electron:dev` | Start the Electron development environment |
+| `npm run electron:compile` | Compile the main process |
+| `npm run sdk:build` | Build the TypeScript SDK |
+| `npm run sdk:test` | Run TypeScript SDK unit tests |
+| `npm run test` | Run the project test suite |
+| `npm run lint` | Run ESLint |
 
-## SDK
+## Project Structure
 
-- TypeScript：[packages/auraxis-sdk](packages/auraxis-sdk/README.md)
-- Python：[python/auraxis_sdk](python/auraxis_sdk/README.md)
-
-SDK 通过换行分隔的 JSON-RPC 2.0 协议驱动 Auraxis 无头 runtime，支持 `ping`、`agent.run` 和 `session.search`。
-
-## 文档
-
-- [工程规范](AGENTS.md)
-- [架构与开发文档（英文）](docs/README.md)
-- [架构与开发文档（中文）](docs/README.zh-CN.md)
-- [更新日志](CHANGELOG.md)
-
-## 安全
-
-模型编写的任意代码执行默认关闭。工具执行必须经过权限配置、沙箱门、审批与路径边界校验；只有显式设置 `AURAXIS_ALLOW_UNSAFE_CODE=1` 的受信开发环境才会启用不安全代码执行。
-项目目录内的规则文件与 hooks 默认不授权，需分别显式设置 `AURAXIS_TRUST_PROJECT_RULES=1` 和 `AURAXIS_TRUST_PROJECT_HOOKS=1`。
+- `electron/` — Electron main process, IPC, app shell, and window lifecycle
+- `src/` — React renderer and UI app
+- `packages/auraxis-sdk/` — TypeScript SDK
+- `python/auraxis_sdk/` — Python SDK
+- `docs/` — product and architecture documentation
 
 ## License
 
-[MIT](LICENSE)
+MIT
+
+## Contributing
+
+Contributions are welcome. Please open an issue or start a discussion before making major changes.
